@@ -43,7 +43,15 @@ module TestGenerator =
             | _ -> Array.empty
         test.MemoryGraph.AddMockedClass mock fields index :> obj
 
-    let private obj2test eval encodeArr (indices : Dictionary<concreteHeapAddress, int>) encodeMock (test : UnitTest) addr typ =
+    let private encodeType (state : state) cha =
+        match state.concreteMemory.TryVirtToPhys cha with
+        | Some obj ->
+            assert(obj :? Type)
+            let t = obj :?> Type
+            typeRepr.Encode t
+        | None -> internalfail "encodeType: unable to encode symbolic instance of 'System.Type'"
+
+    let private obj2test state eval encodeArr (indices : Dictionary<concreteHeapAddress, int>) encodeMock (test : UnitTest) addr typ =
         let index = ref 0
         if indices.TryGetValue(addr, index) then
             let referenceRepr : referenceRepr = {index = index.Value}
@@ -97,10 +105,13 @@ module TestGenerator =
                             let contents : char array = Array.init length readChar
                             String(contents)
                     memoryGraph.AddString index string
+                | _ when Reflection.isInstanceOfType typ ->
+                    // For instance of 'System.Type' or 'System.RuntimeType'
+                    encodeType state addr
                 | _ ->
                     let index = memoryGraph.ReserveRepresentation()
                     indices.Add(addr, index)
-                    let fields = typ |> Reflection.fieldsOf false |> Array.map (fun (field, _) ->
+                    let fields = Reflection.fieldsOf false typ |> Array.map (fun (field, _) ->
                         ClassField(cha, field) |> eval)
                     let repr = memoryGraph.AddClass typ fields index
                     repr :> obj
@@ -139,7 +150,7 @@ module TestGenerator =
                 | Some region ->
                     let defaultValue =
                         match region.defaultValue with
-                        | Some defaultValue -> encode defaultValue
+                        | Some(defaultValue, _) -> encode defaultValue
                         | None -> null
                     let updates = region.updates
                     let indicesWithValues = SortedDictionary<int list, obj>()
@@ -236,7 +247,7 @@ module TestGenerator =
                         address |> Ref |> Memory.Read modelState |> model.Complete |> term2obj
                     let arr2Obj = encodeArrayCompactly state model term2obj
                     let encodeMock = encodeTypeMock model state indices mockCache implementations test
-                    obj2test eval arr2Obj indices encodeMock test address typ
+                    obj2test state eval arr2Obj indices encodeMock test address typ
                 // If address is not in the 'allocatedTypes', it should not be allocated, so result is 'null'
                 | None -> null
             | PrimitiveModel _ -> __unreachable__()
@@ -246,9 +257,9 @@ module TestGenerator =
             let arr2Obj = encodeArrayCompactly state model term2Obj
             let typ = state.allocatedTypes[address]
             let encodeMock = encodeTypeMock model state indices mockCache implementations test
-            obj2test eval arr2Obj indices encodeMock test address typ
+            obj2test state eval arr2Obj indices encodeMock test address typ
 
-    and private encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (implementations : IDictionary<MethodInfo, term[]>) (test : UnitTest) mock : Mocking.Type =
+    and private encodeTypeMock (model : model) state indices (mockCache : Dictionary<ITypeMock, Mocking.Type>) (implementations : IDictionary<MethodInfo, term[] * term[][]>) (test : UnitTest) mock : Mocking.Type =
         let mockedType = ref Mocking.Type.Empty
         if mockCache.TryGetValue(mock, mockedType) then mockedType.Value
         else
@@ -259,12 +270,15 @@ module TestGenerator =
                 freshMock.AddSuperType t
                 for methodMock in implementations do
                     let method = methodMock.Key
-                    let values = methodMock.Value
+                    let values = fst methodMock.Value
+                    let outParams = snd methodMock.Value
                     let methodType = method.ReflectedType
                     let mockedBaseInterface() =
-                        methodType.IsInterface && Seq.contains methodType (TypeUtils.getBaseInterfaces t)
+                        methodType.IsInterface && Array.contains methodType (TypeUtils.getAllInterfaces t)
                     if methodType = t || mockedBaseInterface() then
-                        freshMock.AddMethod(method, Array.map eval values)
+                        let retImplementations = Array.map eval values
+                        let outImplementations = Array.map (Array.map eval) outParams
+                        freshMock.AddMethod(method, retImplementations, outImplementations)
             freshMock
 
     let encodeExternMock (model : model) state indices mockCache implementations test (methodMock : IMethodMock) =
@@ -273,17 +287,18 @@ module TestGenerator =
         let extMock = extMockRepr.Encode test.GetPatchId methodMock.BaseMethod clauses
         test.AddExternMock extMock
 
-    let private modelState2test (test : UnitTest) suite indices mockCache (m : Method) model modelState (state : state) =
+    let private modelState2test (test : UnitTest) suite indices mockCache (m : Method) (model : model) modelState (state : state) =
         match SolveGenericMethodParameters state.typeStorage m with
         | None -> None
         | Some(classParams, methodParams) ->
-            let implementations = Dictionary<MethodInfo, term[]>()
+            let implementations = Dictionary<MethodInfo, term[] * term[][]>()
             for entry in state.methodMocks do
                 let mock = entry.Value
                 match mock.MockingType with
                 | Default ->
                     let values = mock.GetImplementationClauses()
-                    implementations.Add(mock.BaseMethod, values)
+                    let outValues = mock.GetOutClauses()
+                    implementations.Add(mock.BaseMethod, (values, outValues))
                 | Extern ->
                     encodeExternMock model state indices mockCache implementations test mock
 
@@ -328,7 +343,7 @@ module TestGenerator =
                 let concreteThis = term2obj model state indices mockCache implementations test thisTerm
                 test.ThisArg <- concreteThis
 
-            match state.exceptionsRegister, suite with
+            match state.exceptionsRegister.Peek, suite with
             | Unhandled(e, _, _), Error(msg, isFatal) ->
                 test.Exception <- MostConcreteTypeOfRef state e
                 test.IsError <- true
@@ -349,7 +364,8 @@ module TestGenerator =
                 test.Expected <- term2obj model state indices mockCache implementations test retVal
             Some test
 
-    let private model2test (test : UnitTest) suite indices mockCache (m : Method) model (state : state) =
+    let private model2test (test : UnitTest) (suite : testSuite) indices mockCache (m : Method) model (state : state) =
+        assert(suite.IsFatalError || state.exceptionsRegister.Size = 1)
         let suitableState state =
             if m.HasParameterOnStack then Memory.CallStackSize state = 2
             else Memory.CallStackSize state = 1

@@ -833,48 +833,51 @@ namespace IntegrationTests
             }
         }
 
-        [TestSvm]
+
+        [TestSvm(100)]
         public static int EncodeLongToIntReinterpretation(long x)
         {
-            int a = 10;
-            if (*(int*) &x > a ) return *(int*) &x;
-            return a;
+            int r = *(int*)&x;
+            if (r > 10) return *(int*) &x;
+            return -10;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int EncodeDoubleReinterpretation1(double x)
         {
-            int a = 10;
-            if (*(int*) &x > a ) return *(int*) &x;
-            return a;
+            int r = *(int*)&x;
+            if (r > 10) return *(int*) &x;
+            return -10;
         }
 
-        [TestSvm]
+        [TestSvm(88)]
         public static int EncodeDoubleReinterpretation2(double x)
         {
-            byte* a = (byte*)&x + 1;
-            int y = *(int*) a; //-219902326
+            byte* a = (byte*)&x;
+            int y = *(int*) (a + 1); //-219902326
             if (x == 198.1234 && y != -219902326) return -1;
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(100)]
         public static int EncodeDoubleReinterpretation3(double x)
         {
-            if (*(long*)((byte*)&x + 1) == 175767216) return 0;
+            byte* a = (byte*)&x;
+            var b = *(long*) a;
+            if (b == 175767216L) return 0;
             return -1;
         }
 
-        [TestSvm]
+        [TestSvm(86)]
         public static int EncodeDoubleReinterpretation4(double x)
         {
             byte* a = (byte*)&x + 1;
             int y = *(int*) a;
-            if (x == 256 && y != 0) return -1;
+            if (x == 256.0 && y != 0) return -1;
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(87)]
         public static int EncodeDoubleReinterpretation5(double x)
         {
             byte* a = (byte*)&x + 1;
@@ -883,7 +886,7 @@ namespace IntegrationTests
             return 0;
         }
 
-        [TestSvm]
+        [TestSvm(87)]
         public static int EncodeDoubleReinterpretation6(double x)
         {
             byte* a = (byte*)&x + 1;
@@ -892,6 +895,20 @@ namespace IntegrationTests
             return 0;
         }
 
+        [TestSvm(94)]
+        public static int CombineIntoDouble(int[] arr)
+        {
+            fixed (int* p = arr)
+            {
+                var ptr = (double*) p;
+                if (arr[0] == 1 && arr[1] == 3 && *ptr != 6.3659873734E-314)
+                {
+                    return -1;
+                }
+
+                return arr[1];
+            }
+        }
         [Ignore("Insufficient information")]
         public static int ReturnIntFromIntPtr(int myFavouriteParameter)
         {

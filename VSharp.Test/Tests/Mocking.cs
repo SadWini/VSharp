@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using NUnit.Framework;
 using VSharp.Test;
@@ -115,6 +116,47 @@ public interface IIntPtrMock
 public interface IEnumPtrMock
 {
     unsafe MockEnum* Get();
+}
+
+public interface IInterface
+{
+    int GetInt() => 42;
+
+    object GetObj() => GetInt();
+}
+
+public class Derived : IInterface
+{
+    public int X;
+    public object GetObj()
+    {
+        return "string";
+    }
+}
+
+public interface IOutMock
+{
+    void Get(out int i);
+}
+
+public interface IOutMock1
+{
+    void Get(out Derived i);
+}
+
+public struct MyStruct
+{
+    public int X;
+}
+
+public interface IOutMock2
+{
+    void Get(out MyStruct i);
+}
+
+public interface IOutReturnMock
+{
+    int Get(out int i);
 }
 
 [TestSvmFixture]
@@ -390,5 +432,73 @@ public class Mocking
         }
 
         return 2;
+    }
+
+    [TestSvm(100)]
+    public int DefaultImplTest(IInterface i)
+    {
+        var value = i.GetObj();
+
+        if (i is Derived)
+        {
+            if ((string)value == "string")
+                return 2;
+            return -1;
+        }
+        if (value is int n)
+        {
+            return n;
+        }
+
+        if ((string)value == "string")
+        {
+            return 1;
+        }
+
+        return 0;
+    }
+
+    [TestSvm(100)]
+    public int OutMock(IOutMock mock)
+    {
+        var i = 322;
+        mock.Get(out i);
+
+        return i;
+    }
+
+    [TestSvm(100)]
+    public Derived OutMock1(IOutMock1 mock)
+    {
+        var i = new Derived
+        {
+            X = 19
+        };
+        mock.Get(out i);
+
+        return i;
+    }
+
+    [TestSvm(100)]
+    public MyStruct OutMock2(IOutMock2 mock)
+    {
+        var i = new MyStruct
+        {
+            X = 19
+        };
+        mock.Get(out i);
+
+        return i;
+    }
+
+    [TestSvm]
+    public int OutMockWithReturn(IOutReturnMock mock)
+    {
+        var i = 16;
+        var j = mock.Get(out i);
+
+        if (j != 0)
+            return 0;
+        return i;
     }
 }

@@ -11,21 +11,6 @@ type typeVariables = mappedStack<typeWrapper, Type> * Type list stack
 
 type stackBufferKey = concreteHeapAddress
 
-type concreteMemorySource =
-    | HeapSource
-    | StructFieldSource of concreteMemorySource * fieldId
-    | BoxedLocationSource of concreteHeapAddress
-    | ClassFieldSource of concreteHeapAddress * fieldId
-    | ArrayIndexSource of concreteHeapAddress * int list
-    | ArrayLowerBoundSource of concreteHeapAddress * int
-    | ArrayLengthSource of concreteHeapAddress * int
-    | StaticFieldSource of Type * fieldId
-    with
-    member x.StructField fieldId =
-        match x with
-        | HeapSource -> HeapSource
-        | _ -> StructFieldSource(x, fieldId)
-
 type IConcreteMemory =
     abstract Copy : unit -> IConcreteMemory
     abstract Contains : concreteHeapAddress -> bool
@@ -33,12 +18,9 @@ type IConcreteMemory =
     abstract TryVirtToPhys : concreteHeapAddress -> obj option
     abstract PhysToVirt : obj -> concreteHeapAddress
     abstract TryPhysToVirt : obj -> concreteHeapAddress option
-    abstract TryPhysToVirt : concreteMemorySource -> concreteHeapAddress option
-    abstract AllocateRefType : concreteHeapAddress -> obj -> unit
-    abstract AllocateValueType : concreteHeapAddress -> concreteMemorySource -> obj -> unit
+    abstract Allocate : concreteHeapAddress -> obj -> unit
     abstract ReadClassField : concreteHeapAddress -> fieldId -> obj
     abstract ReadArrayIndex : concreteHeapAddress -> int list -> obj
-    // TODO: too expensive! use Seq.iter2 instead with lazy indices sequence
     abstract GetAllArrayData : concreteHeapAddress -> seq<int list * obj>
     abstract ReadArrayLowerBound : concreteHeapAddress -> int -> obj
     abstract ReadArrayLength : concreteHeapAddress -> int -> obj
@@ -47,65 +29,102 @@ type IConcreteMemory =
     abstract InitializeArray : concreteHeapAddress -> RuntimeFieldHandle -> unit
     abstract FillArray : concreteHeapAddress -> int -> int -> obj -> unit
     abstract CopyArray : concreteHeapAddress -> concreteHeapAddress -> int64 -> int64 -> int64 -> unit
-    abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> unit
-    abstract CopyCharArrayToStringLen : concreteHeapAddress -> concreteHeapAddress -> int -> unit
+    abstract CopyCharArrayToString : concreteHeapAddress -> concreteHeapAddress -> int -> unit
+    abstract CopyCharArrayToStringLen : concreteHeapAddress -> concreteHeapAddress -> int -> int -> unit
     abstract Remove : concreteHeapAddress -> unit
-
-type MockingType =
-    | Default
-    | Extern
-
-type IMethodMock =
-    abstract BaseMethod : MethodInfo
-    abstract MockingType : MockingType
-    abstract Call : term option -> term list -> term
-    abstract GetImplementationClauses : unit -> term array
-    abstract Copy : unit -> IMethodMock
 
 // TODO: is it good idea to add new constructor for recognizing cilStates that construct RuntimeExceptions?
 type exceptionRegister =
     | Unhandled of term * bool * string // Exception term * is runtime exception * stack trace
-    | Caught of term * string // Exception term * stack trace
+    | Caught of term * bool * string // Exception term * is runtime exception * stack trace
     | NoException
     with
     member x.GetError () =
         match x with
         | Unhandled(error, _, _) -> error
-        | Caught(error, _) -> error
+        | Caught(error, _, _) -> error
         | _ -> internalfail "no error"
     member x.TransformToCaught () =
         match x with
-        | Unhandled(e, _, s) -> Caught(e, s)
+        | Unhandled(e, isRuntime, s) -> Caught(e, isRuntime, s)
         | _ -> internalfail "unable TransformToCaught"
     member x.TransformToUnhandled () =
         match x with
-        | Caught(e, s) -> Unhandled(e, false, s)
+        | Caught(e, isRuntime, s) -> Unhandled(e, isRuntime, s)
         | Unhandled _ -> x
         | NoException -> internalfail "unable TransformToUnhandled"
-    member x.UnhandledError =
+    member x.IsUnhandledError =
         match x with
         | Unhandled _ -> true
         | _ -> false
     member x.ExceptionTerm =
         match x with
         | Unhandled (error, _, _)
-        | Caught(error, _) -> Some error
+        | Caught(error, _, _) -> Some error
         | _ -> None
     member x.StackTrace =
         match x with
         | Unhandled (_, _, s)
-        | Caught(_, s) -> Some s
+        | Caught(_, _, s) -> Some s
         | _ -> None
     static member map f x =
         match x with
         | Unhandled(e, isRuntime, s) -> Unhandled(f e, isRuntime, s)
-        | Caught(e, s) -> Caught(f e, s)
+        | Caught(e, isRuntime, s) -> Caught(f e, isRuntime, s)
         | NoException -> NoException
+
+type exceptionRegisterStack =
+    private { stack : exceptionRegister stack }
+    member x.GetError() =
+        assert(List.isEmpty x.stack |> not)
+        let head = List.head x.stack
+        head.GetError()
+    member x.TransformToCaught() =
+        assert(List.isEmpty x.stack |> not)
+        match x.stack with
+        | head :: tail ->
+            { stack = head.TransformToCaught() :: tail }
+        | _ -> internalfail "TransformToCaught: exceptionRegisterStack is empty!"
+    member x.TransformToUnhandled() =
+        assert(List.isEmpty x.stack |> not)
+        match x.stack with
+        | head :: tail ->
+            { stack = head.TransformToUnhandled() :: tail }
+        | _ -> internalfail "TransformToUnhandled: exceptionRegisterStack is empty!"
+    member x.IsUnhandledError =
+        assert(List.isEmpty x.stack |> not)
+        let head = List.head x.stack
+        head.IsUnhandledError
+    member x.ExceptionTerm =
+        assert(List.isEmpty x.stack |> not)
+        let head = List.head x.stack
+        head.ExceptionTerm
+    member x.Tail =
+        assert(List.isEmpty x.stack |> not)
+        let tail = List.tail x.stack
+        { stack = tail }
+    member x.Size = Stack.size x.stack
+    member x.Peek =
+        assert(List.isEmpty x.stack |> not)
+        List.head x.stack
+    member x.Pop() =
+        assert(List.isEmpty x.stack |> not)
+        match x.stack with
+        | head :: tail ->
+            head, { stack = tail }
+        | _ -> internalfail "Pop: exceptionRegisterStack is empty!"
+    member x.Push elem = { stack = Stack.push x.stack elem }
+    static member singleton x = { stack = Stack.singleton x }
+    static member map f stack = { stack = Stack.map (exceptionRegister.map f) stack.stack }
 
 type arrayCopyInfo =
     {srcAddress : heapAddress; contents : arrayRegion; srcIndex : term; dstIndex : term; length : term; srcSightType : Type; dstSightType : Type} with
         override x.ToString() =
             sprintf "    source address: %O, from %O ranging %O elements into %O index with cast to %O;\n\r    updates: %O" x.srcAddress x.srcIndex x.length x.dstIndex x.dstSightType (MemoryRegion.toString "        " x.contents)
+
+type memoryMode =
+    | ConcreteMode
+    | SymbolicMode
 
 type model =
     | PrimitiveModel of IDictionary<ISymbolicConstantSource, term>
@@ -149,6 +168,18 @@ and IErrorReporter =
     abstract ReportError : string -> term -> bool
     abstract ReportFatalError : string -> term -> bool
 
+and MockingType =
+    | Default
+    | Extern
+
+and IMethodMock =
+    abstract BaseMethod : MethodInfo
+    abstract MockingType : MockingType
+    abstract Call : state -> term option -> term list -> term option
+    abstract GetImplementationClauses : unit -> term array
+    abstract GetOutClauses : unit -> term array array
+    abstract Copy : unit -> IMethodMock
+
 and
     [<ReferenceEquality>]
     state = {
@@ -166,15 +197,18 @@ and
         mutable initializedTypes : symbolicTypeSet                         // Types with initialized static members
         concreteMemory : IConcreteMemory                                   // Fully concrete objects
         mutable allocatedTypes : pdict<concreteHeapAddress, symbolicType>  // Types of heap locations allocated via new
+        mutable initializedAddresses : pset<term>                          // Addresses, which invariants were initialized
         mutable typeVariables : typeVariables                              // Type variables assignment in the current state
         mutable delegates : pdict<concreteHeapAddress, term>               // Subtypes of System.Delegate allocated in heap
         mutable currentTime : vectorTime                                   // Current timestamp (and next allocated address as well) in this state
         mutable startingTime : vectorTime                                  // Timestamp before which all allocated addresses will be considered symbolic
-        mutable exceptionsRegister : exceptionRegister                     // Heap-address of exception object
+        mutable exceptionsRegister : exceptionRegisterStack                // Heap-address of exception objects, multiple if nested 'try' blocks
         mutable model : model                                              // Concrete valuation of symbolics
         complete : bool                                                    // If true, reading of undefined locations would result in default values
+        memoryMode : memoryMode                                            // If 'ConcreteMode', allocating concrete .NET objects inside 'ConcreteMemory'
         methodMocks : IDictionary<IMethod, IMethodMock>
     }
+    with override x.ToString() = String.Empty
 
 and IStatedSymbolicConstantSource =
     inherit ISymbolicConstantSource

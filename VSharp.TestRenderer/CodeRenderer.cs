@@ -37,7 +37,8 @@ internal class CodeRenderer
         GreaterOrEq,
         Less,
         LessOrEq,
-        ImplicitConv
+        ImplicitConv,
+        ExplicitConv
     }
 
     internal class MockInfo
@@ -95,6 +96,8 @@ internal class CodeRenderer
         }
     }
 
+    public static readonly bool RenderDefaultValues = true;
+
     private static readonly Dictionary<string, MockInfo> MocksInfo = new ();
 
     // TODO: make non-static
@@ -126,14 +129,30 @@ internal class CodeRenderer
 
     private static bool IsPropertyMethod(MethodBase method, out string propertyName, string prefix)
     {
+        Debug.Assert(prefix is "get_" or "set_");
         var name = method.Name;
-        if (method.IsSpecialName && method.DeclaringType != null && name.Contains(prefix))
+        if (method is MethodInfo { IsSpecialName: true, DeclaringType: not null } mi && name.Contains(prefix))
         {
             propertyName = name.Substring(name.IndexOf('_') + 1);
-            return method.DeclaringType.GetProperty(propertyName, Reflection.allBindingFlags) != null;
+            Type[] argumentTypes;
+            Type returnType;
+            if (prefix is "get_")
+            {
+                argumentTypes = mi.GetParameters().Select(p => p.ParameterType).ToArray();
+                returnType = mi.ReturnType;
+            }
+            else
+            {
+                Debug.Assert(prefix is "set_");
+                var types = mi.GetParameters().Select(p => p.ParameterType);
+                argumentTypes = types.SkipLast(1).ToArray();
+                returnType = types.Last();
+            }
+            var declaringType = mi.DeclaringType;
+            return declaringType.GetProperty(propertyName, Reflection.allBindingFlags, null, returnType, argumentTypes, null) != null;
         }
 
-        propertyName = String.Empty;
+        propertyName = string.Empty;
         return false;
     }
 
@@ -207,7 +226,8 @@ internal class CodeRenderer
                 "op_LessThanOrEqual" => OperatorType.LessOrEq,
                 "op_GreaterThanOrEqual" => OperatorType.GreaterOrEq,
                 "op_Implicit" => OperatorType.ImplicitConv,
-                _ => default
+                "op_Explicit" => OperatorType.ExplicitConv,
+                _ => throw new ArgumentOutOfRangeException()
             };
             return true;
         }
@@ -341,14 +361,10 @@ internal class CodeRenderer
             return RenderSimpleTypeName(elemType);
         }
 
-        _referenceManager.AddAssembly(type.Assembly);
-
         if (type.IsGenericParameter)
             return IdentifierName(type.ToString());
 
-        var typeNamespace = type.Namespace;
-        if (typeNamespace != null)
-            _referenceManager.AddUsing(typeNamespace);
+        ReferenceType(type);
 
         if (HasMockInfo(type.Name))
             return GetMockInfo(type.Name).MockName;
@@ -369,6 +385,20 @@ internal class CodeRenderer
         return RenderTypeNameRec(type).Item1;
     }
 
+    private void ReferenceAssembly(Assembly assembly)
+    {
+        _referenceManager.AddAssembly(assembly);
+    }
+
+    private void ReferenceType(Type type)
+    {
+        ReferenceAssembly(type.Assembly);
+
+        var typeNamespace = type.Namespace;
+        if (typeNamespace != null)
+            _referenceManager.AddUsing(typeNamespace);
+    }
+
     private (NameSyntax, int) RenderTypeNameRec(Type type, TypeSyntax[]? typeArgs = null)
     {
         Debug.Assert(type != null);
@@ -386,11 +416,7 @@ internal class CodeRenderer
         if (type.IsGenericParameter || !isNested && (typeArgs == null || !type.IsGenericType))
             return (RenderSimpleTypeName(type), 0);
 
-        _referenceManager.AddAssembly(type.Assembly);
-
-        var typeNamespace = type.Namespace;
-        if (typeNamespace != null)
-            _referenceManager.AddUsing(typeNamespace);
+        ReferenceType(type);
 
         if (type.IsGenericType)
         {
@@ -436,7 +462,7 @@ internal class CodeRenderer
 
     public ExpressionSyntax RenderMethod(MethodBase method)
     {
-        _referenceManager.AddAssembly(method.Module.Assembly);
+        ReferenceAssembly(method.Module.Assembly);
         var type = method.DeclaringType;
         SimpleNameSyntax methodName = RenderMethodName(method);
 
@@ -643,9 +669,25 @@ internal class CodeRenderer
         var typeExpr = RenderType(type);
         // TODO: handle masks, for example 'BindingFlags.Public | BindingFlags.NonPublic' (value will be 'null')
         var value = Enum.GetName(type, e);
-        Debug.Assert(value != null);
+        if (value != null)
+        {
+            return RenderMemberAccess(typeExpr, IdentifierName(value));
+        }
 
-        return RenderMemberAccess(typeExpr, IdentifierName(value));
+        var number = Convert.ChangeType(e, Enum.GetUnderlyingType(type));
+        var renderedNumber = number switch
+        {
+            byte n => RenderByte(n),
+            sbyte n => RenderSByte(n),
+            short n => RenderShort(n),
+            ushort n => RenderUShort(n),
+            int n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            uint n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            long n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            ulong n => LiteralExpression(SyntaxKind.NumericLiteralExpression, Literal(n)),
+            _ => throw new ArgumentException($"RenderEnum: unexpected enum {e}")
+        };
+        return RenderCastExpression(renderedNumber, typeExpr);
     }
 
     public static AssignmentExpressionSyntax RenderAssignment(ExpressionSyntax left, ExpressionSyntax right)
@@ -957,11 +999,14 @@ internal class CodeRenderer
             return RenderObjectCreation(RenderType(method.DeclaringType), functionArgs, init);
         }
 
+        // Adding reference for method's return type assembly
+        ReferenceAssembly(((MethodInfo)method).ReturnType.Assembly);
+
         if (!method.IsPublic || thisType != null && !TypeUtils.isPublic(thisType) ||
             thisArg == null && method.DeclaringType != null && !TypeUtils.isPublic(method.DeclaringType))
             return RenderPrivateCall(thisArg, method, functionArgs);
 
-        if (IsGetItem(method))
+        if (args.Length > 0 && IsGetItem(method))
         {
             // Indexer may be only in non-static context
             Debug.Assert(thisArg != null);
@@ -970,7 +1015,7 @@ internal class CodeRenderer
             return ElementAccessExpression(thisArg).WithArgumentList(indexArgument);
         }
 
-        if (IsSetItem(method))
+        if (args.Length > 1 && IsSetItem(method))
         {
             // Indexer may be only in non-static context
             Debug.Assert(thisArg != null);
@@ -1006,9 +1051,12 @@ internal class CodeRenderer
                     Debug.Assert(args.Length == 2);
                     return RenderLessOrEq(args[0], args[1]);
                 case OperatorType.ImplicitConv:
+                case OperatorType.ExplicitConv:
+                {
                     Debug.Assert(args.Length == 1 && method.DeclaringType != null);
                     var type = RenderType(method.DeclaringType);
                     return RenderCastExpression(args[0], type);
+                }
                 default:
                     throw new ArgumentOutOfRangeException();
             }

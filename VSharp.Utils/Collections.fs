@@ -117,11 +117,11 @@ module public Map =
 
 module public Dict =
     let public getValueOrUpdate (dict : IDictionary<'a, 'b>) key fallback =
-        if dict.ContainsKey(key) then dict.[key]
+        if dict.ContainsKey(key) then dict[key]
         else
             let newVal = fallback()
             // NOTE: 'fallback' action may add 'key' to 'dict'
-            if dict.ContainsKey(key) then dict.[key]
+            if dict.ContainsKey(key) then dict[key]
                 else
                     dict.Add(key, newVal)
                     newVal
@@ -318,7 +318,7 @@ module Array =
                 | :? float as i when elementType = typeof<float> -> fillFast arr i
                 | _ ->
                     // Slow case
-                    Logger.trace "Slowly filling array with %d elements..." arr.Length
+                    Logger.trace $"Slowly filling array with {arr.Length} elements..."
                     let rank = arr.Rank
                     let dims = Array.init rank id
                     let lengths = Array.map arr.GetLength dims

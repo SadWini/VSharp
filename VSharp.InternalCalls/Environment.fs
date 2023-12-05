@@ -43,3 +43,15 @@ module internal Environment =
     let FileExists (_ : state) (args : term list) =
         assert(List.length args = 1)
         False()
+
+    let IsBuiltInComSupportedInternal (_ : state) (args : term list) =
+        assert(List.length args = 0)
+        False()
+
+    let GetLinkTarget (_ : state) (args : term list) =
+        assert(List.length args = 1)
+        NullRef typeof<string>
+
+    let GetEnvironmentVariable (_ : state) (args : term list) =
+        assert(List.length args = 1)
+        NullRef typeof<string>

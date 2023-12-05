@@ -33,6 +33,7 @@ module internal Pointers =
             let baseAddress, structOffset = addressToBaseAndOffset address
             baseAddress, getFieldOffset field |> add structOffset
         | StaticField(symbolicType, field) ->
+            // TODO: use specific 'getFieldOffset'
             StaticLocation symbolicType, getFieldOffset field
         // NOTE: only vector case
         | ArrayIndex(heapAddress, [index], (elementType, _, true as arrayType)) ->
@@ -102,6 +103,9 @@ module internal Pointers =
             simplifyEqual x shift k
         | DetachedPtr shift, _ when typeOf y |> isNative ->
             simplifyEqual shift y k
+        | Ref(ArrayIndex(addr2, _, _)), HeapRef(addr1, _)
+        | HeapRef(addr1, _), Ref(ArrayIndex(addr2, _, _)) when addr1 = zeroAddress() && addr2 = zeroAddress() ->
+            True() |> k
         | _ -> False() |> k
 
     let rec simplifyReferenceEqualityk x y k =
@@ -120,9 +124,7 @@ module internal Pointers =
         | Ptr _ -> False()
         | _ when isReference ref -> isNull ref
         | _ when typeOf ref |> isNative -> True()
-        | Union gvs ->
-            let gvs = List.map (fun (g, v) -> (g, isBadRef v)) gvs
-            Merging.merge gvs
+        | Union gvs -> Merging.guardedMap isBadRef gvs
         | _ -> False()
 
 // -------------------------- Address arithmetic --------------------------
@@ -183,11 +185,32 @@ module internal Pointers =
             multiplyPtrByNumber
             simplifyPointerMultiply
 
+    let rec private simplifyPointerDivide op x y k =
+        let x, y =
+            match x.term, y.term with
+            | DetachedPtr offset1, DetachedPtr offset2 -> offset1, offset2
+            | DetachedPtr offset, _ -> offset, y
+            | _, DetachedPtr offset -> x, offset
+            | _ -> __insufficientInformation__ $"simplifyPointerDivide: {x} {y}"
+        simplifyBinaryOperation op x y k
+
+    let private toPointerIfNeeded x =
+        match x.term with
+        | HeapRef(address, t) -> Ptr (HeapLocation(address, t)) t (makeNumber 0)
+        | Ref address ->
+            let pointerBase, offset = addressToBaseAndOffset address
+            Ptr pointerBase address.TypeOfLocation offset
+        | Ptr _ -> x
+        | _ when typeOf x |> isNative ->
+            let offset = primitiveCast x typeof<int>
+            makeDetachedPtr offset typeof<byte>
+        | _ -> internalfail $"toPointerIfNeeded: unexpected reference {x}"
+
     let private pointerDifference x y k =
+        let x = toPointerIfNeeded x
+        let y = toPointerIfNeeded y
         match x.term, y.term with
         | Ptr(base1, _, offset1), Ptr(base2, _, offset2) when base1 = base2 ->
-            sub offset1 offset2 |> k
-        | DetachedPtr offset1, DetachedPtr offset2 ->
             sub offset1 offset2 |> k
         | Ptr(HeapLocation({term = ConcreteHeapAddress _}, _), _, _), Ptr(HeapLocation({term = ConcreteHeapAddress _}, _), _, _) ->
             undefinedBehaviour "trying to get pointer difference between different pointer bases"
@@ -203,14 +226,25 @@ module internal Pointers =
         if Terms.isNumeric y then simplifyPointerAddition x (neg y) k
         else commonPointerSubtraction x y k
 
+    let private pointerIdOfBaseAndOffset pointerBase offset =
+        match pointerBase with
+        | HeapLocation({term = ConcreteHeapAddress a}, _) ->
+            let pointerBase = convert (VectorTime.hash a) typeof<int> |> makeNumber
+            add pointerBase offset
+        | _ -> __insufficientInformation__ $"pointerId: unable to get pointer ID of pointerBase {pointerBase}"
+
     let private pointerId ptr =
         match ptr.term with
         | DetachedPtr offset -> offset
         | _ when typeOf ptr |> isNative ->
             primitiveCast ptr typeof<int>
-        | Ptr(HeapLocation({term = ConcreteHeapAddress a}, _), _, o) ->
-            let pointerBase = convert (VectorTime.hash a) typeof<int> |> makeNumber
-            add pointerBase o
+        | Ptr(pointerBase, _, o) ->
+            pointerIdOfBaseAndOffset pointerBase o
+        | Ref address ->
+            let pointerBase, offset = addressToBaseAndOffset address
+            pointerIdOfBaseAndOffset pointerBase offset
+        | HeapRef({term = ConcreteHeapAddress a}, _) ->
+            convert (VectorTime.hash a) typeof<int> |> makeNumber
         | _ -> __insufficientInformation__ $"pointerId: unable to get pointer ID of symbolic pointer {ptr}"
 
     let private simplifyPointerComparison op x y k =
@@ -230,6 +264,8 @@ module internal Pointers =
             simplifyPointerAddition x y k
         | OperationType.Multiply ->
             simplifyPointerMultiply x y k
+        | OperationType.Divide
+        | OperationType.Divide_Un -> simplifyPointerDivide op x y k
         | OperationType.Equal -> simplifyReferenceEqualityk x y k
         | OperationType.NotEqual ->
             simplifyReferenceEqualityk x y (fun e ->
@@ -245,16 +281,15 @@ module internal Pointers =
             simplifyPointerComparison op x y k
         | _ -> internalfailf "%O is not a binary arithmetical operator" op
 
-    let isPointerOperation op t1 t2 =
-        let isRefOrPtr = function
-            | ReferenceType _ -> true
-            | t -> t.IsByRef || isPointer t
+    let isPointerOperation op left right =
         match op with
+        | OperationType.Subtract -> isRefOrPtr left && (isRefOrPtr right || Terms.isNumeric right)
         | OperationType.Equal
-        | OperationType.NotEqual -> isRefOrPtr t1 || isRefOrPtr t2
-        | OperationType.Subtract -> isRefOrPtr t1 && (isRefOrPtr t2 || isNumeric t2)
-        | OperationType.Add -> isRefOrPtr t1 || isRefOrPtr t2
-        | OperationType.Multiply -> isRefOrPtr t1 || isRefOrPtr t2
+        | OperationType.NotEqual
+        | OperationType.Add
+        | OperationType.Multiply
+        | OperationType.Divide
+        | OperationType.Divide_Un
         | OperationType.Less
         | OperationType.Less_Un
         | OperationType.LessOrEqual
@@ -262,5 +297,5 @@ module internal Pointers =
         | OperationType.Greater
         | OperationType.Greater_Un
         | OperationType.GreaterOrEqual
-        | OperationType.GreaterOrEqual_Un -> isRefOrPtr t1 || isRefOrPtr t2
+        | OperationType.GreaterOrEqual_Un -> isRefOrPtr left || isRefOrPtr right
         | _ -> false

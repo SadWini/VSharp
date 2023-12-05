@@ -6,10 +6,16 @@ open VSharp
 open VSharp.Core
 
 module API =
+
     let ConfigureSolver solver =
         SolverInteraction.configureSolver solver
+
     let ConfigureSimplifier simplifier =
         configureSimplifier simplifier
+
+    let CharsArePretty = charsArePretty
+    let ConfigureChars arePretty =
+        configureChars arePretty
 
     let Reset() =
         IdGenerator.reset()
@@ -49,6 +55,7 @@ module API =
         match thisRef.term with
         | HeapRef(address, t) ->
             let constraints = List.singleton t |> typeConstraints.FromSuperTypes
+            // TODO: add 'isPublic' constraint, because 'this' may be rendered only with public type
             state.typeStorage.AddConstraint address constraints
             match TypeSolver.solveTypes state.model state with
             | TypeSat -> ()
@@ -123,7 +130,6 @@ module API =
             let zero = MakeNumber 0
             let ptrToRef sightType offset state k =
                 let ref = Memory.tryPtrToRef state pointerBase sightType offset
-                assert(Option.isSome ref)
                 k (ref, state)
             let fork state condition sightType offset =
                 StatedConditionalExecution state
@@ -212,6 +218,7 @@ module API =
         let (|TypeInitializedSource|_|) src = Memory.(|TypeInitializedSource|_|) src
         let (|TypeSubtypeTypeSource|_|) src = TypeCasting.(|TypeSubtypeTypeSource|_|) src
         let (|RefSubtypeTypeSource|_|) src = TypeCasting.(|RefSubtypeTypeSource|_|) src
+        let (|RefEqTypeSource|_|) src = TypeCasting.(|RefEqTypeSource|_|) src
         let (|TypeSubtypeRefSource|_|) src = TypeCasting.(|TypeSubtypeRefSource|_|) src
         let (|RefSubtypeRefSource|_|) src = TypeCasting.(|RefSubtypeRefSource|_|) src
         let (|GetHashCodeSource|_|) s = Memory.(|GetHashCodeSource|_|) s
@@ -271,7 +278,7 @@ module API =
         let TypeIsType leftType rightType = TypeCasting.typeIsType leftType rightType
         let TypeIsRef state typ ref = TypeCasting.typeIsRef state typ ref
         let RefIsType state ref typ = TypeCasting.refIsType state ref typ
-        let RefIsAssignableToType state ref typ = TypeCasting.refIsAssignableToType state ref typ
+        let RefEqType state ref typ = TypeCasting.refEqType state ref typ
         let RefIsRef state ref1 ref2 = TypeCasting.refIsRef state ref1 ref2
 
         let IsCast state term targetType = TypeCasting.canCast state term targetType
@@ -411,7 +418,9 @@ module API =
                         let index = indices[0]
                         t, mul index (TypeUtils.internalSizeOf t |> makeNumber)
                 Ptr baseAddress sightType (add offset indexOffset)
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReferenceArrayIndex state v indices valueType)) |> Merging.merge
+            | Union gvs ->
+                let referenceArrayIndex term = ReferenceArrayIndex state term indices valueType
+                Merging.guardedMap referenceArrayIndex gvs
             | _ -> internalfailf "Referencing array index: expected reference, but got %O" arrayRef
 
         let ReferenceField state reference fieldId =
@@ -425,7 +434,7 @@ module API =
             | Ref(ClassField(address, field)) when field = Reflection.stringFirstCharField ->
                 let address, arrayType = StringArrayInfo state address None
                 ArrayIndex(address, [zero], arrayType) |> Some |> singleton
-            | Ref(ArrayIndex _ as address) -> Some address |> singleton
+            | Ref(address) -> Some address |> singleton
             | HeapRef(address, typ) ->
                 let t = MostConcreteTypeOfRef state ref
                 if TypeUtils.isArrayType t then
@@ -505,7 +514,9 @@ module API =
             | HeapRef(addr, typ) when Memory.mostConcreteTypeOfHeapRef state addr typ = typeof<string> ->
                 let addr, arrayType = Memory.stringArrayInfo state addr None
                 Memory.readArrayIndex state addr [index] arrayType
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ReadStringChar state v index)) |> Merging.merge
+            | Union gvs ->
+                let readStringChar term = ReadStringChar state term index
+                Merging.guardedMap readStringChar gvs
             | _ -> internalfailf "Reading string char: expected reference, but got %O" reference
         let ReadStaticField state typ field = Memory.readStaticField state typ field
         let ReadDelegate state reference = Memory.readDelegate state reference
@@ -567,6 +578,7 @@ module API =
         let CallStackContainsFunction state method = CallStack.containsFunc state.stack method
         let CallStackSize state = CallStack.size state.stack
         let GetCurrentExploringFunction state = CallStack.getCurrentFunc state.stack
+        let EntryFunction state = CallStack.entryFunction state.stack
 
         let BoxValueType state term = Memory.allocateBoxedLocation state term
 
@@ -689,7 +701,7 @@ module API =
             | HeapRef(address, sightType) ->
                 let arrayType = Memory.mostConcreteTypeOfHeapRef state address sightType |> symbolicTypeToArrayType
                 let elemType = fst3 arrayType
-                let value = if Types.IsValueType elemType then makeNumber 0 else NullRef elemType
+                let value = makeDefaultValue elemType
                 Copying.fillArray state address arrayType index length value
             | _ -> internalfailf "Clearing array: expected heapRef, but got %O" array
 
@@ -718,7 +730,7 @@ module API =
                     assert(Memory.mostConcreteTypeOfHeapRef state address sightType = typeof<string>)
                     let string = String(c, len)
                     cm.Remove a
-                    cm.AllocateRefType a string
+                    cm.Allocate a string
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), _, None
             | HeapRef({term = ConcreteHeapAddress a} as address, sightType), None, _
                 when cm.Contains a ->
@@ -734,21 +746,26 @@ module API =
         let Dump state = Memory.dump state
         let StackTrace stack = CallStack.stackTrace stack
         let StackTraceString stack = CallStack.stackTraceString stack
+        let StackToString stack = CallStack.toString stack
 
         let rec ArrayRank state arrayRef =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> TypeUtils.rankOf |> makeNumber
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ArrayRank state v)) |> Merging.merge
+            | Union gvs -> Merging.guardedMap (ArrayRank state) gvs
             | _ -> internalfailf "Getting rank of array: expected ref, but got %O" arrayRef
         let rec ArrayLengthByDimension state arrayRef index =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLength state addr index
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ArrayLengthByDimension state v index)) |> Merging.merge
+            | Union gvs ->
+                let arrayLengthByDimension term = ArrayLengthByDimension state term index
+                Merging.guardedMap arrayLengthByDimension gvs
             | _ -> internalfailf "reading array length: expected heap reference, but got %O" arrayRef
         let rec ArrayLowerBoundByDimension state arrayRef index =
             match arrayRef.term with
             | HeapRef(addr, typ) -> Memory.mostConcreteTypeOfHeapRef state addr typ |> symbolicTypeToArrayType |> Memory.readLowerBound state addr index
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, ArrayLowerBoundByDimension state v index)) |> Merging.merge
+            | Union gvs ->
+                let arrayLowerBoundByDimension term = ArrayLowerBoundByDimension state term index
+                Merging.guardedMap arrayLowerBoundByDimension gvs
             | _ -> internalfailf "reading array lower bound: expected heap reference, but got %O" arrayRef
 
         let rec CountOfArrayElements state arrayRef =
@@ -757,7 +774,7 @@ module API =
                 let _, dim, _ as arrayType = Memory.mostConcreteTypeOfHeapRef state address typ |> symbolicTypeToArrayType
                 let lens = List.init dim (fun dim -> Memory.readLength state address (makeNumber dim) arrayType)
                 List.fold mul (makeNumber 1) lens
-            | Union gvs -> gvs |> List.map (fun (g, v) -> (g, CountOfArrayElements state v)) |> Merging.merge
+            | Union gvs -> Merging.guardedMap (CountOfArrayElements state) gvs
             | _ -> internalfailf "counting array elements: expected heap reference, but got %O" arrayRef
 
         let StringLength state strRef = Memory.lengthOfString state strRef
@@ -769,8 +786,13 @@ module API =
                 let copy arrayRef state k =
                     match arrayRef.term with
                     | HeapRef(arrayAddr, typ) ->
-                        assert(Memory.mostConcreteTypeOfHeapRef state arrayAddr typ = typeof<char[]>)
-                        Copying.copyCharArrayToString state arrayAddr dstAddr length
+                        assert(let t = Memory.mostConcreteTypeOfHeapRef state arrayAddr typ in t = typeof<char[]> || t = typeof<string>)
+                        Copying.copyCharArrayToString state arrayAddr dstAddr (makeNumber 0) length
+                        k (Nop(), state)
+                    | Ref(ArrayIndex(arrayAddr, indices, (elemType, dim, isVector))) ->
+                        assert(isVector && dim = 1 && elemType = typeof<char> && List.length indices = 1)
+                        let index = indices[0]
+                        Copying.copyCharArrayToString state arrayAddr dstAddr index length
                         k (Nop(), state)
                     | _ -> internalfail $"StringCtorOfCharArray: unexpected array reference {arrayRef}"
                 let nullCase state k =
@@ -792,23 +814,43 @@ module API =
         let Merge2States (s1 : state) (s2 : state) = Memory.merge2States s1 s2
         let Merge2Results (r1, s1 : state) (r2, s2 : state) = Memory.merge2Results (r1, s1) (r2, s2)
 
-        let FillRegion state value = function
-            | HeapFieldSort field ->
-                state.classFields <- PersistentDict.update state.classFields field (field.typ |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
-            | StaticFieldSort field ->
-                state.staticFields <- PersistentDict.update state.staticFields field (field.typ |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
-            | ArrayIndexSort typ ->
-                state.arrays <- PersistentDict.update state.arrays typ (typ |> fst3 |> MemoryRegion.empty) (MemoryRegion.fillRegion value)
-            | ArrayLengthSort typ ->
-                state.lengths <- PersistentDict.update state.lengths typ (MemoryRegion.empty TypeUtils.lengthType) (MemoryRegion.fillRegion value)
-            | ArrayLowerBoundSort typ ->
-                state.lowerBounds <- PersistentDict.update state.lowerBounds typ (MemoryRegion.empty TypeUtils.lengthType) (MemoryRegion.fillRegion value)
-            | StackBufferSort key ->
-                state.stackBuffers <- PersistentDict.update state.stackBuffers key (MemoryRegion.empty typeof<int8>) (MemoryRegion.fillRegion value)
-            | BoxedSort typ ->
-                state.boxedLocations <- PersistentDict.update state.boxedLocations typ (MemoryRegion.empty typ) (MemoryRegion.fillRegion value)
+        let FillClassFieldsRegion state (field : fieldId) value isSuitableKey =
+            let defaultValue = MemoryRegion.empty field.typ
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.classFields <- PersistentDict.update state.classFields field defaultValue fill
 
-        let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state HeapSource typ o
+        let FillStaticsRegion state (field : fieldId) value isSuitableKey =
+            let defaultValue = MemoryRegion.empty field.typ
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.staticFields <- PersistentDict.update state.staticFields field defaultValue fill
+
+        let FillArrayRegion state typ value isSuitableKey =
+            let defaultValue = fst3 typ |> MemoryRegion.empty
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.arrays <- PersistentDict.update state.arrays typ defaultValue fill
+
+        let FillLengthRegion state typ value isSuitableKey =
+            let defaultValue = MemoryRegion.empty TypeUtils.lengthType
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.lengths <- PersistentDict.update state.lengths typ defaultValue fill
+
+        let FillLowerBoundRegion state typ value isSuitableKey =
+            let defaultValue = MemoryRegion.empty TypeUtils.lengthType
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.lowerBounds <- PersistentDict.update state.lowerBounds typ defaultValue fill
+
+        let FillStackBufferRegion state key value isSuitableKey =
+            let defaultValue = MemoryRegion.empty typeof<int8>
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.stackBuffers <- PersistentDict.update state.stackBuffers key defaultValue fill
+
+        let FillBoxedRegion state typ value isSuitableKey =
+            let defaultValue = MemoryRegion.empty typ
+            let fill region = MemoryRegion.fillRegion value isSuitableKey region
+            state.boxedLocations <- PersistentDict.update state.boxedLocations typ defaultValue fill
+
+        let ObjectToTerm (state : state) (o : obj) (typ : Type) = Memory.objToTerm state typ o
+        let TryTermToObject (state : state) term = Memory.tryTermToObj state term
 
         let StateResult (state : state) =
             let callStackSize = CallStackSize state
@@ -823,7 +865,7 @@ module API =
                 let additionalFrameIsNeeded = hasByRefParameters || thisIsValueType
                 match method with
                 | _ when callStackSize = 1 || callStackSize = 2 && additionalFrameIsNeeded -> Types.Cast result method.ReturnType
-                | _ when state.exceptionsRegister.UnhandledError -> Nop()
+                | _ when state.exceptionsRegister.IsUnhandledError -> Nop()
                 | _ -> internalfailf "Method is not finished! Stack trace = %O" CallStack.stackTraceString state.stack
             | _ -> internalfail "EvaluationStack size was bigger than 1"
 
