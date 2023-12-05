@@ -1,7 +1,9 @@
 namespace VSharp.Solver
 open VSharp.Core.SolverInteraction
+open VSharp.Solver.Z3Solver
 
 type public SupportedSolvers =
+    | Yices
     | Z3
 
 module public SolverPool =
@@ -11,10 +13,10 @@ module public SolverPool =
     let switchSolver (solver : SupportedSolvers) =
         currentSolver <- solver
 
-    let mkSolver (timeoutMs : int) : ISolver =
+    let mkSolver (timeoutMs : int, solver : SupportedSolvers) : ISolver =
         let timeoutOpt = if timeoutMs > 0 then Some(uint timeoutMs) else None
         match currentSolver with
-        | Z3 -> Z3.Z3Solver timeoutOpt :> ISolver
+        | Z3 -> Z3Solver timeoutOpt :> ISolver
 
     let reset() =
         Z3.reset()
