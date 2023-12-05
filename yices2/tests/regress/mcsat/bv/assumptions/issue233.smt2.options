@@ -1,1 +1,0 @@
---mcsat --incremental --yices-model-format --trace mcsat::interpolant::check

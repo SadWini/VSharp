@@ -1,8 +1,0 @@
-(set-logic QF_UF)
-(declare-sort U 0)
-(declare-fun f (U) U)
-(declare-fun g (U) U)
-(declare-fun h (U) U)
-(assert (distinct f g h))
-(check-sat)
-(get-model)

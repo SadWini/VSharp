@@ -1,8 +1,0 @@
-(set-logic QF_UF)
-(declare-const v2 Bool)
-(declare-const v11 Bool)
-(declare-const v14 Bool)
-(declare-const v18 Bool)
-(assert (ite v18 (ite v18 v11 v14) v2))
-(assert v18)
-(check-sat)

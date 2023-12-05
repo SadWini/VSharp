@@ -1,5 +1,0 @@
-(set-logic QF_LIA)
-(declare-const i0 Int)
-(assert (> (mod i0 795) i0))
-(check-sat)
-(push 1)
