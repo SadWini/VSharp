@@ -32,8 +32,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.CoverageRunner", "VS
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "VSharp.SVM", "VSharp.SVM\VSharp.SVM.fsproj", "{9455C456-51A6-4CA3-B33A-4F168CBADADA}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "VSharp.Yices", "VSharp.Yices\VSharp.Yices.csproj", "{C20F4FDA-DC57-4E63-8269-CFB19ABDC90A}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -137,11 +135,5 @@ Global
 		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.Release|Any CPU.Build.0 = Release|Any CPU
 		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
 		{9455C456-51A6-4CA3-B33A-4F168CBADADA}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
-		{C20F4FDA-DC57-4E63-8269-CFB19ABDC90A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{C20F4FDA-DC57-4E63-8269-CFB19ABDC90A}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{C20F4FDA-DC57-4E63-8269-CFB19ABDC90A}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{C20F4FDA-DC57-4E63-8269-CFB19ABDC90A}.Release|Any CPU.Build.0 = Release|Any CPU
-		{C20F4FDA-DC57-4E63-8269-CFB19ABDC90A}.DebugTailRec|Any CPU.ActiveCfg = Debug|Any CPU
-		{C20F4FDA-DC57-4E63-8269-CFB19ABDC90A}.DebugTailRec|Any CPU.Build.0 = Debug|Any CPU
 	EndGlobalSection
 EndGlobal
