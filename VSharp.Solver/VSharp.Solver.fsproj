@@ -17,7 +17,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Include="Z3.fs" />
+        <Compile Include="ISolver.fs" />
+        <Compile Include="Z3Solver.fs" />
+        <Compile Include="Encoding.fs" />
         <Compile Include="SolverPool.fs" />
     </ItemGroup>
 
