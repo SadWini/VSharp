@@ -195,7 +195,7 @@ module internal CommonSolver =
             | _ when expr = FalseExpr -> Some(False)
             | _ -> None
 
-        member x.MkSolver = ctx.MkSolver()
+        member x.MkSolver() = ctx.MkSolver()
         member x.MkParams = ctx.MkParams()
         member x.MkParamsAdd (p : 'IParams, name : string, time : uint32) = ctx.MkParamsAdd(p, name, time)
         member x.MkSAddParams(s : 'ISolver, p : 'IParams) = ctx.MkSAddParams(s, p)
@@ -1465,7 +1465,7 @@ module internal CommonSolver =
 
     type CommonSolver(ctx : SolverBuilder<'IExpr, 'IBoolExpr, 'IBitVecExpr, 'IFPExpr, 'IArrayExpr, 'IBitVecNum, 'IFPNum, 'IFuncDecl,
         'ISort, 'IModel, 'ISolver, 'IParams>, timeoutMs : uint option) =
-        let solver = ctx.MkSolver
+        let solver = ctx.MkSolver()
 
         do
             match timeoutMs with
