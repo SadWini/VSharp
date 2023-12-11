@@ -23,8 +23,10 @@ module internal CommonSolver =
     type encodingResult<'IExpr,'IBoolExpr  when 'IExpr : equality> =
         // TODO: use new type for assumptions -- add only if element is not True
         {expr : 'IExpr; assumptions: 'IBoolExpr list}
-        static member Create(expr : 'a) = {expr = expr; assumptions = List.empty}
-        static member Create(expr : 'a, conditions) = {expr = expr; assumptions = conditions}
+        static member Create(expr : 'IExpr) =
+            let emptyAssumptions : 'IBoolExpr list = []
+            {expr = expr; assumptions = emptyAssumptions}
+        static member Create(expr : 'IExpr, conditions : 'IBoolExpr list) = {expr = expr; assumptions = conditions}
 
         override x.GetHashCode() = x.expr.GetHashCode()
 
@@ -33,7 +35,7 @@ module internal CommonSolver =
             | :? encodingResult<'IExpr, 'IBoolExpr> as res -> x.expr = res.expr
             | _ -> false
 
-    let toTuple encodingResult = encodingResult.assumptions, encodingResult.expr
+    let toTuple (encodingResult : encodingResult<'IExpr, 'IBoolExpr>) = encodingResult.assumptions, encodingResult.expr
 
 // ------------------------------- Path -------------------------------
 
