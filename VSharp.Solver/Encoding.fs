@@ -543,47 +543,47 @@ module internal Encoding =
 
 // ------------------------------- Floating point arithmetic simplifications -------------------------------
 
-        member private x.MkFPGt(left : 'IFPExpr, right : 'IFPExpr as operands) : 'IBoolExpr =
+        member private x.MkFPGt(left : 'IExpr, right : 'IExpr as operands) : 'IBoolExpr =
             assert(ctx.GetSort left = ctx.GetSort right)
             match left, right with
             | _ when left = right -> FalseExpr
             | _ -> operands |> ctx.MkFPGT
 
-        member private x.MkFPGEq(left : 'IFPExpr, right : 'IFPExpr as operands) : 'IBoolExpr =
+        member private x.MkFPGEq(left : 'IExpr, right : 'IExpr as operands) : 'IBoolExpr =
             assert(ctx.GetSort left = ctx.GetSort right)
             match left, right with
             | _ when left = right -> TrueExpr
             | _ -> operands |> ctx.MkFPGEq
 
-        member private x.MkFPLt(left : 'IFPExpr, right : 'IFPExpr as operands) : 'IBoolExpr =
+        member private x.MkFPLt(left : 'IExpr, right : 'IExpr as operands) : 'IBoolExpr =
             assert(ctx.GetSort left = ctx.GetSort right)
             match left, right with
             | _ when left = right -> FalseExpr
             | _ -> operands |> ctx.MkFPLT
 
-        member private x.MkFPLEq(left : 'IFPExpr, right : 'IFPExpr as operands) : 'IBoolExpr =
+        member private x.MkFPLEq(left : 'IExpr, right : 'IExpr as operands) : 'IBoolExpr =
             assert(ctx.GetSort left = ctx.GetSort right)
             match left, right with
             | _ when left = right -> TrueExpr
             | _ -> operands |> ctx.MkFPLEq
 
-        member private x.MkFPAdd(left : 'IFPExpr, right : 'IFPExpr as operands) : 'IFPExpr =
+        member private x.MkFPAdd(left : 'IExpr, right : 'IExpr as operands) : 'IExpr =
             assert(ctx.GetSort left = ctx.GetSort right)
             ctx.MkFPAdd(RoundNearest, left, right)
 
-        member private x.MkFPMul(left : 'IFPExpr, right : 'IFPExpr as operands) : 'IFPExpr =
+        member private x.MkFPMul(left : 'IExpr, right : 'IExpr as operands) : 'IExpr =
             assert(ctx.GetSort left = ctx.GetSort right)
             ctx.MkFPMul(RoundNearest, left, right)
 
-        member private x.MkFPSub(left : 'IFPExpr, right : 'IFPExpr as operands) : 'IFPExpr =
+        member private x.MkFPSub(left : 'IExpr, right : 'IExpr as operands) : 'IExpr =
             assert(ctx.GetSort left = ctx.GetSort right)
             ctx.MkFPSub(RoundNearest, left, right)
 
-        member private x.MkFPDiv(left : 'IFPExpr, right : 'IFPExpr as operands) : 'IFPExpr =
+        member private x.MkFPDiv(left : 'IExpr, right : 'IExpr as operands) : 'IExpr =
             assert(ctx.GetSort left = ctx.GetSort right)
             ctx.MkFPDiv(RoundNearest, left, right)
 
-        member private x.MkFPRem(left : 'IFPExpr, right : 'IFPExpr as operands) : 'IFPExpr =
+        member private x.MkFPRem(left : 'IExpr, right : 'IExpr as operands) : 'IExpr =
             assert(ctx.GetSort left = ctx.GetSort right)
             ctx.MkFPRem operands
 
