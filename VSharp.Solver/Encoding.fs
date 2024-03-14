@@ -1297,7 +1297,7 @@ module internal Encoding =
             | _ when not (Types.IsValueType t) ->
                 let address = x.DecodeConcreteHeapAddress expr |> ConcreteHeapAddress
                 HeapRef address t
-            | _ when ctx.MkCheckEToBVNum expr && Types.IsNumeric t -> x.DecodeFPNum t (ctx.MkEToFPNum expr)
+            | _ when ctx.MkCheckEToFPNum expr && Types.IsNumeric t -> x.DecodeFPNum t (ctx.MkEToFPNum expr)
             | _ when ctx.MkCheckEToBVE expr && ctx.IsConst expr->
                 let bv = ctx.MkEToBVE expr
                 let exists, result = e2t.TryGetValue expr
