@@ -122,7 +122,7 @@ module internal Encoding =
         let heapAddresses = Dictionary<'IExpr, vectorTime>()
         let staticKeys = Dictionary<'IExpr, Type>()
         let regionConstants = Dictionary<regionSort * path, 'IArrayExpr>()
-        let defaultValues = Dictionary<regionSort, HashSet<'IExpr[]>>()
+        let regionAccesses = Dictionary<regionSort * path, HashSet<'IExpr[]>>()
         let funcDecls = Dictionary<string * 'ISort[] * 'ISort, 'IFuncDecl>()
         let mutable lastSymbolicAddress : int32 = 0
 
@@ -137,7 +137,7 @@ module internal Encoding =
 
         let toTuple encodingResult = encodingResult.assumptions, encodingResult.expr
 
-        let emptyState = Memory.EmptyState()
+        let emptyState = Memory.EmptyIsolatedState()
         let mutable maxBufferSize = 128
 
         let typeOfLocation (regionSort : regionSort) (path : path) =
@@ -164,12 +164,12 @@ module internal Encoding =
                 keySet.Add(key) |> ignore
                 regionAccesses.Add(typ, keySet)
 
-        let tryRemoveRegionAccess (m : 'IModel) (typ : regionSort * path) (storeKey : Expr[]) =
+        let tryRemoveRegionAccess (m : 'IModel) (typ : regionSort * path) (storeKey : 'IExpr[]) =
             let keySet = regionAccesses[typ]
             let mutable toDelete = None
             for k in keySet do
                 if Option.isNone toDelete then
-                    let k' = Array.map (fun k -> m.Eval(k, false)) k
+                    let k' = Array.map (fun k -> ctx.Eval(m, k, false)) k
                     if k' = storeKey then
                         toDelete <- Some k
             match toDelete with
@@ -178,7 +178,7 @@ module internal Encoding =
                 true
             | None -> false
 
-        let getRestRegionAccesses (m : 'IModel) (typ : regionSort * path) : seq<Expr[]> =
+        let getRestRegionAccesses (m : 'IModel) (typ : regionSort * path) : seq<'IExpr[]> =
             let exists, keySet = regionAccesses.TryGetValue(typ)
             if exists then Seq.map (Array.map (fun k -> ctx.Eval(m, k, false))) keySet
             else Seq.empty
@@ -219,7 +219,7 @@ module internal Encoding =
             heapAddresses.Clear()
             staticKeys.Clear()
             regionConstants.Clear()
-            defaultValues.Clear()
+            regionAccesses.Clear()
             funcDecls.Clear()
             lastSymbolicAddress <- 0
 
@@ -1426,7 +1426,7 @@ module internal Encoding =
                         Write state (Ref address) value
                     else stores[(address, path)] <- value, region
 
-                for KeyValue((region, path), constant) in regionConstants do
+                for KeyValue(region, path as typ, constant) in regionConstants do
                     let arr = ctx.Eval(m, ctx.MkAEToE constant, false)
                     let typeOfRegion = region.TypeOfLocation
                     let typeOfLocation =
