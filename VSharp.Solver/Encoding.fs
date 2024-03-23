@@ -1064,7 +1064,7 @@ module internal Encoding =
                 let expr = encodingResult.expr
                 let assumptions = encodingResult.assumptions
                 let left = ctx.MkBVSGT(expr, ctx.MkBVInt(32, ctx.SortSize(ctx.MkEToBVE expr)) |> ctx.MkBVEToE)
-                let right = ctx.MkBVSLT(expr, ctx.MkBVInt(32, ctx.SortSize(ctx.MkEToBVE expr)) |> ctx.MkBVEToE)
+                let right = ctx.MkBVSLT(expr, ctx.MkBVInt(127, ctx.SortSize(ctx.MkEToBVE expr)) |> ctx.MkBVEToE)
                 {expr = expr; assumptions = left :: right :: assumptions}
             else encodingResult
 
