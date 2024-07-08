@@ -21,6 +21,8 @@
         <Compile Include="Z3Solver.fs" />
         <Compile Include="Encoding.fs" />
         <Compile Include="SolverPool.fs" />
+        <Compile Include="YicesSolver.fs" />
+        <Compile Include="YicesWrapper.cs" />
     </ItemGroup>
 
     <ItemGroup>
