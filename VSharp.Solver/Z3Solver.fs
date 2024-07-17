@@ -138,6 +138,10 @@ module internal Z3Solver =
             member t.MkBVAddNoUnderflow (x : Expr, y : Expr) = ctx.MkBVAddNoUnderflow (x :?> BitVecExpr, y :?> BitVecExpr)
             member t.MkBVAddNoOverflow (x : Expr, y : Expr, sign : Boolean) =
                 ctx.MkBVAddNoOverflow (x :?> BitVecExpr, y :?> BitVecExpr , sign)
+
+            member t.MkBVSubNoOverflow (x : Expr, y : Expr) = ctx.MkBVSubNoOverflow (x :?> BitVecExpr, y :?> BitVecExpr)
+            member t.MkBVSubNoUnderflow (x : Expr, y : Expr, sign : Boolean) =
+                ctx.MkBVSubNoUnderflow (x :?> BitVecExpr, y :?> BitVecExpr, sign)
             member t.MkBVMulNoUnderflow (x : Expr, y : Expr) = ctx.MkBVMulNoUnderflow (x :?> BitVecExpr, y :?> BitVecExpr)
             member t.MkBVMulNoOverflow (x : Expr, y : Expr, sign : Boolean) =
                 ctx.MkBVMulNoOverflow (x :?> BitVecExpr, y :?> BitVecExpr, sign)

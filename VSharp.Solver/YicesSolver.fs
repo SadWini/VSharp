@@ -4,8 +4,8 @@ open System
 open ISolver
 open Microsoft.Z3
 
-module internal Z3Solver =
-    type Z3Solver(ctx : Context) =
+module internal YicesSolver =
+    type YicesSolver(ctx : Context) =
         interface ISolverCommon<Expr, BoolExpr, BitVecExpr, FPExpr, ArrayExpr, BitVecNum, FPNum, FuncDecl, Sort, Model, Solver> with
             // Creation of constant expressions
             member t.MkTrue() = ctx.MkTrue()
@@ -20,15 +20,10 @@ module internal Z3Solver =
             member t.MkFPRoundNearestTiesToEven() = ctx.MkFPRoundNearestTiesToEven()
 
             //Creating sorts
-
-            //type_t yices_bool_type(void)
             member t.MkBoolSort() = ctx.MkBoolSort()
-            //type_t yices_bv_type(uint32_t size)
             member t.MkBitVecSort (x :uint)= ctx.MkBitVecSort x
-            //No
             member t.MkFPSort32() = ctx.MkFPSort32()
             member t.MkFPSort64() = ctx.MkFPSort64()
-            //type_t yices_tuple_type2(type_t tau1, type_t tau2)
             member t.MkArraySort (x : Sort, y : Sort) = ctx.MkArraySort (x, y)
             member t.MkRangeArraySort (x: Sort array, y : Sort) = ctx.MkArraySort (x, y)
             member t.BoolSort() = ctx.BoolSort
@@ -143,6 +138,10 @@ module internal Z3Solver =
             member t.MkBVAddNoUnderflow (x : Expr, y : Expr) = ctx.MkBVAddNoUnderflow (x :?> BitVecExpr, y :?> BitVecExpr)
             member t.MkBVAddNoOverflow (x : Expr, y : Expr, sign : Boolean) =
                 ctx.MkBVAddNoOverflow (x :?> BitVecExpr, y :?> BitVecExpr , sign)
+
+            member t.MkBVSubNoOverflow (x : Expr, y : Expr) = ctx.MkBVSubNoOverflow (x :?> BitVecExpr, y :?> BitVecExpr)
+            member t.MkBVSubNoUnderflow (x : Expr, y : Expr, sign : Boolean) =
+                ctx.MkBVSubNoUnderflow (x :?> BitVecExpr, y :?> BitVecExpr, sign)
             member t.MkBVMulNoUnderflow (x : Expr, y : Expr) = ctx.MkBVMulNoUnderflow (x :?> BitVecExpr, y :?> BitVecExpr)
             member t.MkBVMulNoOverflow (x : Expr, y : Expr, sign : Boolean) =
                 ctx.MkBVMulNoOverflow (x :?> BitVecExpr, y :?> BitVecExpr, sign)

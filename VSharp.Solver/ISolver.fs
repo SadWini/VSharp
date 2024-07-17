@@ -130,6 +130,8 @@ type ISolverCommon<'IExpr, 'IBoolExpr, 'IBitVecExpr, 'IFPExpr, 'IArrayExpr, 'IBi
     //BitVec arithmetics without overflow/underflow
     abstract member MkBVAddNoUnderflow: 'IExpr * 'IExpr -> 'IBoolExpr
     abstract member MkBVAddNoOverflow: 'IExpr * 'IExpr * bool-> 'IBoolExpr
+    abstract member MkBVSubNoOverflow: 'IExpr * 'IExpr -> 'IBoolExpr
+    abstract member MkBVSubNoUnderflow: 'IExpr * 'IExpr * bool -> 'IBoolExpr
     abstract member MkBVMulNoUnderflow: 'IExpr * 'IExpr -> 'IBoolExpr
     abstract member MkBVMulNoOverflow: 'IExpr * 'IExpr * bool-> 'IBoolExpr
 

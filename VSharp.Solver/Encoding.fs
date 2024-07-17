@@ -476,7 +476,7 @@ module internal Encoding =
             let left, right = x.ExtendIfNeed operands true
             ctx.MkBVAddNoOverflow(left, right, true)
 
-        member private x.MkBVAddNoOverflowUn operands : BoolExpr =
+        member private x.MkBVAddNoOverflowUn operands : 'IBoolExpr =
             let left, right = x.ExtendIfNeed operands false
             ctx.MkBVAddNoOverflow(left, right, false)
 
@@ -493,27 +493,25 @@ module internal Encoding =
             let left, right = x.ExtendIfNeed operands true
             ctx.MkBVMulNoOverflow(left, right, true)
 
-        member private x.MkBVMulNoOverflowUn operands : BoolExpr =
+        member private x.MkBVMulNoOverflowUn operands : 'IBoolExpr =
             let left, right = x.ExtendIfNeed operands false
             ctx.MkBVMulNoOverflow(left, right, false)
 
-        member private x.MkBVSubT typ operands : BitVecExpr =
-            x.ChangeSizeIfNeed operands typ |> ctx.MkBVSub
         member private x.MkBVSubT typ operands : 'IExpr =
             x.ChangeSizeIfNeed operands typ |> ctx.MkBVSub |> ctx.MkBVEToE
 
         member private x.MkBVSub operands : 'IBitVecExpr =
             x.ExtendIfNeed operands true |> ctx.MkBVSub
 
-        member private x.MkBVSubNoUnderflow operands : BoolExpr =
+        member private x.MkBVSubNoUnderflow operands : 'IBoolExpr =
             let left, right = x.ExtendIfNeed operands true
             ctx.MkBVSubNoUnderflow(left, right, true)
 
-        member private x.MkBVSubNoUnderflowUn operands : BoolExpr =
+        member private x.MkBVSubNoUnderflowUn operands : 'IBoolExpr =
             let left, right = x.ExtendIfNeed operands false
             ctx.MkBVSubNoUnderflow(left, right, false)
 
-        member private x.MkBVSubNoOverflow operands : BoolExpr =
+        member private x.MkBVSubNoOverflow operands : 'IBoolExpr =
             let left, right = x.ExtendIfNeed operands true
             ctx.MkBVSubNoOverflow(left, right)
 
@@ -690,19 +688,19 @@ module internal Encoding =
                 let operation (l, r) =
                     x.MkAnd(x.MkBVAddNoUnderflow(l, r), x.MkBVAddNoOverflow(l, r)) |> ctx.MkBEToE
                 x.MakeBinary operation args
-            | OperationType.AddNoOvf_Un -> x.MakeBinary x.MkBVAddNoOverflowUn args
+            | OperationType.AddNoOvf_Un -> x.MakeBinary (ctx.MkBEToE << x.MkBVAddNoOverflowUn) args
             | OperationType.Multiply -> x.MakeBinary (x.MkBVMulT typ) args
             | OperationType.MultiplyNoOvf ->
                 let operation (l, r) =
                     x.MkAnd(x.MkBVMulNoUnderflow(l, r), x.MkBVMulNoOverflow(l, r)) |> ctx.MkBEToE
                 x.MakeBinary operation args
-            | OperationType.MultiplyNoOvf_Un -> x.MakeBinary x.MkBVMulNoOverflowUn args
+            | OperationType.MultiplyNoOvf_Un -> x.MakeBinary (ctx.MkBEToE << x.MkBVMulNoOverflowUn) args
             | OperationType.Subtract -> x.MakeBinary (x.MkBVSubT typ) args
             | OperationType.SubNoOvf ->
                 let operation (l, r) =
-                    x.MkAnd(x.MkBVSubNoOverflow(l, r), x.MkBVSubNoUnderflow(l, r))
-                x.MakeBinary operation args
-            | OperationType.SubNoOvf_Un -> x.MakeBinary x.MkBVSubNoUnderflowUn args
+                     x.MkAnd(x.MkBVSubNoOverflow(l, r), x.MkBVSubNoUnderflow(l, r))
+                x.MakeBinary (ctx.MkBEToE << operation) args
+            | OperationType.SubNoOvf_Un -> x.MakeBinary (ctx.MkBEToE << x.MkBVSubNoUnderflowUn) args
             | OperationType.Divide -> x.MakeBinary (x.MkBVSDivT typ) args
             | OperationType.Divide_Un -> x.MakeBinary (x.MkBVUDivT typ) args
             | OperationType.Remainder -> x.MakeBinary (x.MkBVSRemT typ) args
@@ -881,7 +879,7 @@ module internal Encoding =
                 let {expr = guard; assumptions = guardAssumptions} = x.EncodeTerm g
                 let {expr = value; assumptions = valueAssumptions} = x.EncodeTerm v
                 let assumptions = assumptions @ guardAssumptions @ valueAssumptions
-                (x.MkITE(guard :?> BoolExpr, value, prevIte), assumptions) |> k
+                (x.MkITE(x.MkEToBE guard, value, prevIte), assumptions) |> k
             Cps.List.foldrk constructUnion (elseValue, []) iteType.branches (fun (ite, assumptions) ->
             {expr = ite; assumptions = assumptions})
 
@@ -994,7 +992,7 @@ module internal Encoding =
                 // NOTE: we need constraints on right key, because path condition may contain it
                 // EXAMPLE: a[k] = 1; if (k == 0 && a[i] == 1) {...}
                 let matchAssumptions, keysAreMatch = keysAreMatch readKey record.key reg
-                let recordReachability = x.MkAnd(recordGuardEncoded :?> BoolExpr, keysAreMatch)
+                let recordReachability = x.MkAnd(x.MkEToBE recordGuardEncoded, keysAreMatch)
                 // TODO: [style] auto append assumptions
                 let assumptions =  assumptions @ matchAssumptions
                 let readFieldIfNeed term path =
