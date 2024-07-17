@@ -5,55 +5,63 @@ public class Yices
 {
     enum term_constructor_t
     {
-         YICES_CONSTRUCTOR_ERROR,  // UNUSED_TERM
-         YICES_CONSTRUCTOR_ERROR,  // RESERVED_TERM
-         YICES_SCALAR_CONSTANT,    // CONSTANT_TERM
-         YICES_ARITH_CONSTANT,     // ARITH_CONSTANT
-         YICES_BV_CONSTANT,        // BV64_CONSTANT
-         YICES_BV_CONSTANT,        // BV_CONSTANT
-         YICES_VARIABLE,           // VARIABLE
-         YICES_UNINTERPRETED_TERM, // UNINTERPRETED_TERM
-         YICES_EQ_TERM,            // ARITH_EQ_ATOM
-         YICES_ARITH_GE_ATOM,      // ARITH_GE_ATOM
-         YICES_IS_INT_ATOM,        // ARITH_IS_INT_ATOM
-         YICES_FLOOR,              // ARITH_FLOOR
-         YICES_CEIL,               // ARITH_CEIL
-         YICES_ABS,                // ARITH_ABS
-         YICES_ARITH_ROOT_ATOM,    // ARITH_ROOT_ATOM
-         YICES_ITE_TERM,           // ITE_TERM
-         YICES_ITE_TERM,           // ITE_SPECIAL
-         YICES_APP_TERM,           // APP_TERM
-         YICES_UPDATE_TERM,        // UPDATE_TERM
-         YICES_TUPLE_TERM,         // TUPLE_TERM
-         YICES_EQ_TERM,            // EQ_TERM
-         YICES_DISTINCT_TERM,      // DISTINCT_TERM
-         YICES_FORALL_TERM,        // FORALL_TERM
-         YICES_LAMBDA_TERM,        // LAMBDA_TERM
-         YICES_OR_TERM,            // OR_TERM
-         YICES_XOR_TERM,           // XOR_TERM
-         YICES_EQ_TERM,            // ARITH_BINEQ_ATOM
-         YICES_RDIV,               // ARITH_RDIV
-         YICES_IDIV,               // ARITH_IDIV
-         YICES_IMOD,               // ARITH_MOD
-         YICES_DIVIDES_ATOM,       // ARITH_DIVIDES_ATOM
-         YICES_BV_ARRAY,           // BV_ARRAY
-         YICES_BV_DIV,             // BV_DIV
-         YICES_BV_REM,             // BV_REM
-         YICES_BV_SDIV,            // BV_SDIV
-         YICES_BV_SREM,            // BV_SREM
-         YICES_BV_SMOD,            // BV_SMOD
-         YICES_BV_SHL,             // BV_SHL
-         YICES_BV_LSHR,            // BV_LSHR
-         YICES_BV_ASHR,            // BV_ASHR
-         YICES_EQ_TERM,            // BV_EQ_ATOM
-         YICES_BV_GE_ATOM,         // BV_GE_ATOM
-         YICES_BV_SGE_ATOM,        // BV_SGE_ATOM
-         YICES_SELECT_TERM,        // SELECT_TERM
-         YICES_BIT_TERM,           // BIT_TERM
-         YICES_POWER_PRODUCT,      // POWER_PRODUCT
-         YICES_ARITH_SUM,          // ARITH_POLY
-         YICES_BV_SUM,             // BV64_POLY
-         YICES_BV_SUM,             // BV_POLY
+         YICES_CONSTRUCTOR_ERROR = -1, // to report an error
+
+        // atomic terms
+        YICES_BOOL_CONSTANT,       // boolean constant
+        YICES_ARITH_CONSTANT,      // rational constant
+        YICES_BV_CONSTANT,         // bitvector constant
+        YICES_SCALAR_CONSTANT,     // constant of uninterpreted/scalar
+        YICES_VARIABLE,            // variable in quantifiers
+        YICES_UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound)
+
+        // composite terms
+        YICES_ITE_TERM,            // if-then-else
+        YICES_APP_TERM,            // application of an uninterpreted function
+        YICES_UPDATE_TERM,         // function update
+        YICES_TUPLE_TERM,          // tuple constructor
+        YICES_EQ_TERM,             // equality
+        YICES_DISTINCT_TERM,       // distinct t_1 ... t_n
+        YICES_FORALL_TERM,         // quantifier
+        YICES_LAMBDA_TERM,         // lambda
+        YICES_NOT_TERM,            // (not t)
+        YICES_OR_TERM,             // n-ary OR
+        YICES_XOR_TERM,            // n-ary XOR
+
+        YICES_BV_ARRAY,            // array of boolean terms
+        YICES_BV_DIV,              // unsigned division
+        YICES_BV_REM,              // unsigned remainder
+        YICES_BV_SDIV,             // signed division
+        YICES_BV_SREM,             // remainder in signed division (rounding to 0)
+        YICES_BV_SMOD,             // remainder in signed division (rounding to -infinity)
+        YICES_BV_SHL,              // shift left (padding with 0)
+        YICES_BV_LSHR,             // logical shift right (padding with 0)
+        YICES_BV_ASHR,             // arithmetic shift right (padding with sign bit)
+        YICES_BV_GE_ATOM,          // unsigned comparison: (t1 >= t2)
+        YICES_BV_SGE_ATOM,         // signed comparison (t1 >= t2)
+        YICES_ARITH_GE_ATOM,       // atom (t1 >= t2) for arithmetic terms: t2 is always 0
+        YICES_ARITH_ROOT_ATOM,     // atom (0 <= k <= root_count(p)) && (x r root(p, k)) for r in <, <=, ==, !=, >, >=
+
+
+        YICES_ABS,                 // absolute value
+        YICES_CEIL,                // ceil
+        YICES_FLOOR,               // floor
+        YICES_RDIV,                // real division (as in x/y)
+        YICES_IDIV,                // integer division
+        YICES_IMOD,                // modulo
+        YICES_IS_INT_ATOM,         // integrality test: (is-int t)
+        YICES_DIVIDES_ATOM,        // divisibility test: (divides t1 t2)
+
+        // projections
+        YICES_SELECT_TERM,         // tuple projection
+        YICES_BIT_TERM,            // bit-select: extract the i-th bit of a bitvector
+
+        // sums
+        YICES_BV_SUM,              // sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
+        YICES_ARITH_SUM,           // sum of pairs a * t where a is a rational (and t is an arithmetic term)
+
+        // products
+        YICES_POWER_PRODUCT        // power products: (t1^d1 * ... * t_n^d_n)
     }
     // Creation of constant expressions
     [DllImport("libyices.dll")]
@@ -214,7 +222,7 @@ public class Yices
     public static extern int yices_term_is_atomic(int x);
     public static bool MkCheckBVEToBVNum (int x)
     {
-        return yices_is_atomic(x) == 1;
+        return yices_term_is_atomic(x) == 1;
     }
     //TO DO Implement FP Theory
     //abstract member MkCheckFPEToFPNum: 'IFPExpr -> bool
@@ -222,11 +230,12 @@ public class Yices
     //abstract member MkCheckEToBVNum: 'IExpr -> bool
     public static bool MkCheckEToBVNum (int x)
     {
-        if yices_is_bitvector(x) == 0 return false;
-        return yices_is_atomic(x) == 1;
+        if (yices_term_is_bitvector(x) == 0) return false;
+        return yices_term_is_atomic(x) == 1;
     }
+    //TO DO Implement FP Theory
+    //abstract member MkCheckEToFPNum: 'IExpr -> bool
 
-    abstract member MkCheckEToFPNum: 'IExpr -> bool
     abstract member MkCheckEToINum: 'IExpr -> bool
     abstract member MkCheckEToRNum: 'IExpr -> bool
 
@@ -294,7 +303,7 @@ public class Yices
     [DllImport("libyices.dll")]
     public static extern int yices_bvextract(int x, uint y, uint z);
     [DllImport("libyices.dll")]
-    public static extern int yices_bvconcat2(int x, const int y); // const in yices function
+    public static extern int yices_bvconcat2(int x, int y); // const in yices function
 
     //BitVec arithmetics
     [DllImport("libyices.dll")]
@@ -320,21 +329,21 @@ public class Yices
     abstract member MkBVMulNoOverflow: 'IExpr * 'IExpr * bool-> 'IBoolExpr
 
     //FP Logic
-    //Doesn't support
-    abstract member MkFPEq: 'IFPExpr * 'IFPExpr -> 'IBoolExpr
-    abstract member MkFPLT: 'IExpr * 'IExpr -> 'IBoolExpr
-    abstract member MkFPLEq: 'IExpr * 'IExpr -> 'IBoolExpr
-    abstract member MkFPGT: 'IExpr * 'IExpr -> 'IBoolExpr
-    abstract member MkFPGEq: 'IExpr * 'IExpr -> 'IBoolExpr
+    //TO DO Implement FP Theory
+    //abstract member MkFPEq: 'IFPExpr * 'IFPExpr -> 'IBoolExpr
+    //abstract member MkFPLT: 'IExpr * 'IExpr -> 'IBoolExpr
+    //abstract member MkFPLEq: 'IExpr * 'IExpr -> 'IBoolExpr
+    //abstract member MkFPGT: 'IExpr * 'IExpr -> 'IBoolExpr
+    //abstract member MkFPGEq: 'IExpr * 'IExpr -> 'IBoolExpr
 
     //FP arithmetics
-    //Doesn't support
-    abstract member MkFPAdd: 'IExpr * 'IExpr * 'IExpr -> 'IExpr
-    abstract member MkFPMul: 'IExpr * 'IExpr * 'IExpr -> 'IExpr
-    abstract member MkFPSub: 'IExpr * 'IExpr * 'IExpr -> 'IExpr
-    abstract member MkFPDiv: 'IExpr * 'IExpr * 'IExpr -> 'IExpr
-    abstract member MkFPRem: 'IExpr * 'IExpr -> 'IExpr
-    abstract member MkFPNeg: 'IExpr -> 'IExpr
+    //TO DO Implement FP Theory
+    //abstract member MkFPAdd: 'IExpr * 'IExpr * 'IExpr -> 'IExpr
+    //abstract member MkFPMul: 'IExpr * 'IExpr * 'IExpr -> 'IExpr
+    //abstract member MkFPSub: 'IExpr * 'IExpr * 'IExpr -> 'IExpr
+    //abstract member MkFPDiv: 'IExpr * 'IExpr * 'IExpr -> 'IExpr
+    //abstract member MkFPRem: 'IExpr * 'IExpr -> 'IExpr
+    //abstract member MkFPNeg: 'IExpr -> 'IExpr
 
 //Expression methods
     //Common methods
@@ -342,12 +351,29 @@ public class Yices
     //abstract member GetSort: 'IExpr -> 'ISort
     [DllImport("libyices.dll")]
     public static extern int yices_type_of_term(int x);
-    abstract member GetExprType: 'IExpr -> Type
+
+    //abstract member GetExprType: 'IExpr -> Type
+
     //Didn't find toString in API, exists pretty printing, is possible to use for our purposes?
     //4700+ in yices.h
     abstract member String: 'IExpr -> string
+
     //Need to research exact functionality of this function in Z3
-    abstract member GetArgs: 'IExpr -> 'IExpr array
+    //abstract member GetArgs: 'IExpr -> 'IExpr array
+    [DllImport("libyices.dll")]
+    public static extern int yices_term_child(int t, int i);
+    [DllImport("libyices.dll")]
+    public static extern int yices_term_num_child(int t);
+
+    public static int[] GetArgs(int t)
+    {
+        int n = yices_term_num_child(t);
+        int[] comp = new int[n];
+        //if (n == 0) throw error?
+        for (int i = 0; i < n; i++)
+            comp[i] = yices_term_child(t, i);
+        return comp;
+    }
     //Check
     abstract member IsConst: 'IExpr -> bool
     abstract member IsConstantArray: 'IExpr -> bool
@@ -359,8 +385,8 @@ public class Yices
     //abstract member IsApp: 'IExpr -> bool
     public static bool IsApp(int x)
     {
-        term_constructor_t temp = yices_term_constructor(x);
-        return temp == YICES_APP_TERM;
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_APP_TERM;
     }
 
     //abstract member IsTrue: 'IExpr -> bool
@@ -378,8 +404,8 @@ public class Yices
     //abstract member IsNot: 'IExpr -> bool
     public static bool IsNot(int x)
     {
-        term_constructor_t temp = yices_term_constructor(x);
-        return temp == YICES_NOT_TERM;
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_NOT_TERM;
     }
 
     abstract member IsAnd: 'IExpr -> bool
@@ -389,36 +415,70 @@ public class Yices
     public static extern int yices_term_constructor(int x);
     public static bool IsOr(int x)
     {
-        term_constructor_t temp = yices_term_constructor(x);
-        return temp == YICES_OR_TERM;
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_OR_TERM;
     }
 
     //abstract member IsEq: 'IExpr -> bool
-    public statiс bool IsEq(int x)
+    public static bool IsEq(int x)
     {
-        term_constructor_t temp = yices_term_constructor(x);
-        return temp == YICES_EQ_TERM;
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_EQ_TERM;
     }
 
-    abstract member IsBVSGT: 'IExpr -> bool
-    abstract member IsBVUGT: 'IExpr -> bool
-    //abstract member IsBVSGE: 'IExpr -> bool
-    public statiс bool IsBVSGE(int x)
+    //abstract member IsBVSGT: 'IExpr -> bool
+    public static bool IsBVSGT(int x)
     {
-        term_constructor_t temp = yices_term_constructor(x);
-        return temp == YICES_BV_SGE_ATOM;
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_NOT_TERM;
+    }
+    //abstract member IsBVUGT: 'IExpr -> bool
+    public static bool IsBVUGT(int x)
+    {
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_NOT_TERM;
+    }
+
+    //abstract member IsBVSGE: 'IExpr -> bool
+    public static bool IsBVSGE(int x)
+    {
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_BV_SGE_ATOM;
     }
     //abstract member IsBVUGE: 'IExpr -> bool
-    public statiс bool IsBVUGE(int x)
+    public static bool IsBVUGE(int x)
     {
-        term_constructor_t temp = yices_term_constructor(x);
-        return temp == YICES_BV_GE_ATOM;
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_BV_GE_ATOM;
     }
 
-    abstract member IsBVSLT: 'IExpr -> bool
-    abstract member IsBVULT: 'IExpr -> bool
-    abstract member IsBVSLE: 'IExpr -> bool
-    abstract member IsBVULE: 'IExpr -> bool
+    //abstract member IsBVSLT: 'IExpr -> bool
+    public static bool IsBVSLT(int x)
+    {
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_NOT_TERM;
+    }
+
+    //abstract member IsBVULT: 'IExpr -> bool
+    public static bool IsBVULT(int x)
+    {
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_NOT_TERM;
+    }
+
+    //abstract member IsBVSLE: 'IExpr -> bool
+    public static bool IsBVSLE(int x)
+    {
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_BV_SGE_ATOM;
+    }
+
+    //abstract member IsBVULE: 'IExpr -> bool
+    public static bool IsBVULE(int x)
+    {
+        int temp = yices_term_constructor(x);
+        return temp == (int) term_constructor_t.YICES_BV_GE_ATOM;
+    }
 
     /* TO DO implement FP Theory
     abstract member IsFPGT: 'IExpr -> bool

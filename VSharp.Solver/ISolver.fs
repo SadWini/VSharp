@@ -154,7 +154,7 @@ type ISolverCommon<'IExpr, 'IBoolExpr, 'IBitVecExpr, 'IFPExpr, 'IArrayExpr, 'IBi
     //Common methods
     //properties
     abstract member GetSort: 'IExpr -> 'ISort
-    abstract member GetExprType: 'IExpr -> Type
+    //abstract member GetExprType: 'IExpr -> Type
     abstract member String: 'IExpr -> string
     abstract member GetArgs: 'IExpr -> 'IExpr array
     //Check

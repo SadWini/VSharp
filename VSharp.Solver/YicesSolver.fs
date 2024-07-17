@@ -167,7 +167,7 @@ module internal YicesSolver =
             member t.String(x : Expr) = x.String
             member t.GetArgs(x : Expr) = x.Args
             member t.GetSort(x : Expr) = x.Sort
-            member t.GetExprType(x : Expr) = x.GetType()
+            //member t.GetExprType(x : Expr) = x.GetType()
             //Check
             member t.IsConst(x : Expr) = x.IsConst
             member t.IsConstantArray(x : Expr) = x.IsConstantArray
