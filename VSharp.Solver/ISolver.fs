@@ -73,7 +73,6 @@ type ISolverCommon<'IExpr, 'IBoolExpr, 'IBitVecExpr, 'IFPExpr, 'IArrayExpr, 'IBi
     abstract member MkCheckEToFPE: 'IExpr -> bool
     abstract member MkCheckEToAE: 'IExpr -> bool
     //down casts to nums
-    abstract member MkCheckBVEToBVNum: 'IBitVecExpr -> bool
     abstract member MkCheckFPEToFPNum: 'IFPExpr -> bool
     abstract member MkCheckEToBVNum: 'IExpr -> bool
     abstract member MkCheckEToFPNum: 'IExpr -> bool

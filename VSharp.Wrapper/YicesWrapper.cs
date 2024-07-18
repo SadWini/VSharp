@@ -77,8 +77,9 @@ public class Yices
     {
         return yices_false();
     }
-    // Need to grasp function yices_constant
-    abstract member MkConst: string * 'ISort -> 'IExpr
+
+    //abstract member MkConst: string * 'ISort -> 'IExpr
+
     //abstract member MkConstDecl: string * 'ISort -> 'IFuncDecl
     [DllImport("libyices.dll")]
     public static extern int yices_new_uninterpreted_term(int x);
@@ -86,36 +87,88 @@ public class Yices
     public static extern int yices_set_type_name(int x, string name);
     int MkConstDecl(int x, string name)
     {
-        int newTerm = yices_new_uninterpreted_term(int x);
+        int newTerm = yices_new_uninterpreted_term(x);
         int flag = yices_set_type_name(newTerm, name);
         //if (flag == -1) throw error?
         return newTerm;
     }
-    //Need to map by Sort
-    abstract member MkNumeral: string * 'ISort -> 'IExpr
-    abstract member MkNumeral: uint * 'ISort -> 'IExpr
-    abstract member MkNumeral: int * 'ISort -> 'IExpr
+
+    [DllImport("libyices.dll")]
+    public static extern int yices_type_is_bitvector(int t);
+    [DllImport("libyices.dll")]
+    public static extern uint yices_bvtype_size(int t);
+    //abstract member MkNumeral: string * 'ISort -> 'IExpr
+    static public int MkNumeral(string v, int typ)
+    {
+        if (yices_type_is_bitvector(typ) == 1)
+        {
+            uint size = yices_bvtype_size(typ);
+            if (Int32.TryParse(v, out int value))
+                return yices_bvconst_int32(size, value);
+            throw new FormatException("Can't parse int from string in MkNumeral(int, int)");
+        }
+        throw new ArgumentException("Not supported type in MkNumeral(string, int)");
+    }
+
+    //abstract member MkNumeral: uint * 'ISort -> 'IExpr
+    static public int MkNumeral(uint v, int typ)
+    {
+        if (yices_type_is_bitvector(typ) == 1)
+        {
+            uint size = yices_bvtype_size(typ);
+            return yices_bvconst_uint32(size, v);
+        }
+        throw new ArgumentException("Not supported type in MkNumeral(uint, int)");
+    }
+
+    //abstract member MkNumeral: int * 'ISort -> 'IExpr
+    static public int MkNumeral(int v, int typ)
+    {
+        if (yices_type_is_bitvector(typ) == 1)
+        {
+            uint size = yices_bvtype_size(typ);
+            return yices_bvconst_int32(size, v);
+        }
+        throw new ArgumentException("Not supported type in MkNumeral(int, int)");
+    }
+
     //TO DO Implement FP Theory
-    abstract member MkFPNumeral: float32 * 'ISort -> 'IExpr
-    abstract member MkFPDoubleNumeral: float * 'ISort -> 'IExpr
-    abstract member MkFPRoundNearestTiesToEven: unit -> 'IExpr
+    //abstract member MkFPNumeral: float32 * 'ISort -> 'IExpr
+    //abstract member MkFPDoubleNumeral: float * 'ISort -> 'IExpr
+    //abstract member MkFPRoundNearestTiesToEven: unit -> 'IExpr
 
 //Creating sorts
-    [DllImport("libyices.dll")]
     //abstract member MkBoolSort: unit -> 'ISort
+    [DllImport("libyices.dll")]
     public static extern int yices_bool_type();
+
+    public static int MkBoolSort()
+    {
+        return yices_bool_type();
+    }
     //abstract member MkBitVecSort: uint -> 'ISort
     [DllImport("libyices.dll")]
-    public static extern int yices_true(uint size);
-    //TO DO Some erros or switching to Z3?
+    public static extern int yices_bv_type(uint size);
+
+    public static int MkBitVecSort(uint size)
+    {
+        return yices_bv_type(size);
+    }
+
+    //TO DO Implement FP Theory
     //abstract member MkFPSort32: unit -> 'ISort
     //abstract member MkFPSort64: unit -> 'ISort
+
     //https://www.yumpu.com/en/document/read/10134532/yices-tutorial-the-yices-smt-solver-sri-international
     //Need to grasp how to implement array theory in function terms
     abstract member MkArraySort: 'ISort * 'ISort -> 'ISort
     abstract member MkRangeArraySort: 'ISort array * 'ISort -> 'ISort
-    //What is functionality of it? Just mkBoolSort?
-    abstract member BoolSort: unit -> 'ISort
+
+    //abstract member BoolSort: unit -> 'ISort
+    public static int BoolSort()
+    {
+        return yices_bool_type();
+    }
 
 //Creating terms
     //abstract member MkBV: uint32 * uint32 -> 'IBitVecExpr
@@ -146,7 +199,7 @@ public class Yices
     public static extern int yices_application(int f, uint n, int[] arg);
     public static int MkApp(int f, params int[] args)
     {
-        return yices_application(f, args.Length, args);
+        return yices_application(f, (uint) args.Length, args);
     }
 
     //abstract member MkFuncDecl: string * 'ISort array * 'ISort -> 'IFuncDecl
@@ -154,7 +207,7 @@ public class Yices
     public static extern int yices_function_type(uint n, int[] dom, int range);
     public static int MkFuncDecl(string name, int[] dom, int range)
     {
-        int typ = yices_function_type(dom.Length, dom, range);
+        int typ = yices_function_type((uint) dom.Length, dom, range);
         int newTerm = yices_new_uninterpreted_term(typ);
         int flag = yices_set_type_name(newTerm, name);
         //if (flag == -1) throw error?
@@ -177,6 +230,7 @@ public class Yices
     //abstract member MkFPToBV: 'IExpr * 'IFPExpr * uint * bool -> 'IBitVecExpr
 
     //down casts from expr
+    //Just return variable because all types are int
     abstract member MkEToBE: 'IExpr -> 'IBoolExpr
     abstract member MkEToBVE: 'IExpr -> 'IBitVecExpr
     abstract member MkEToFPE: 'IExpr -> 'IFPExpr
@@ -184,15 +238,38 @@ public class Yices
 
     //up casts to expr
     //Can terms in Yices be used by default as Expr in Z3?
-    abstract member MkBEToE: 'IBoolExpr -> 'IExpr
-    abstract member MkBVEToE: 'IBitVecExpr -> 'IExpr
+    //abstract member MkBEToE: 'IBoolExpr -> 'IExpr
+    public static int MkBEToE(int x)
+    {
+        return x;
+    }
+    //abstract member MkBVEToE: 'IBitVecExpr -> 'IExpr
+    public static int MkBVEToE(int x)
+    {
+        return x;
+    }
+
     abstract member MkFPEToE: 'IFPExpr -> 'IExpr
-    abstract member MkAEToE: 'IArrayExpr -> 'IExpr
+
+    //abstract member MkAEToE: 'IArrayExpr -> 'IExpr
+    public static int MkAEToE(int x)
+    {
+        return x;
+    }
 
     //casts with nums
-    abstract member MkEToBVNum: 'IExpr -> 'IBitVecNum
+    //abstract member MkEToBVNum: 'IExpr -> 'IBitVecNum
+    public static int MkEToBVNum(int x)
+    {
+        return x;
+    }
     abstract member MkEToFPNum: 'IExpr -> 'IFPNum
-    abstract member MkBVNumToBVE: 'IBitVecNum -> 'IBitVecExpr
+
+    //abstract member MkBVNumToBVE: 'IBitVecNum -> 'IBitVecExpr
+    public static int MkBVNumToBVE(int x)
+    {
+        return x;
+    }
 
 //Terms conversion check
     //down casts from expr
@@ -219,11 +296,8 @@ public class Yices
     //down casts to nums
     //abstract member MkCheckBVEToBVNum: 'IBitVecExpr -> bool
     [DllImport("libyices.dll")]
-    public static extern int yices_term_is_atomic(int x);
-    public static bool MkCheckBVEToBVNum (int x)
-    {
-        return yices_term_is_atomic(x) == 1;
-    }
+    public static extern int yices_term_is_atomic(int x);\
+
     //TO DO Implement FP Theory
     //abstract member MkCheckFPEToFPNum: 'IFPExpr -> bool
 
@@ -430,13 +504,13 @@ public class Yices
     public static bool IsBVSGT(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_NOT_TERM;
+        return temp == (int) term_constructor_t.YICES_NOT_TERM; //x > y <=> ! y >= x
     }
     //abstract member IsBVUGT: 'IExpr -> bool
     public static bool IsBVUGT(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_NOT_TERM;
+        return temp == (int) term_constructor_t.YICES_NOT_TERM; //x > y <=> ! y >= x
     }
 
     //abstract member IsBVSGE: 'IExpr -> bool
@@ -445,6 +519,7 @@ public class Yices
         int temp = yices_term_constructor(x);
         return temp == (int) term_constructor_t.YICES_BV_SGE_ATOM;
     }
+
     //abstract member IsBVUGE: 'IExpr -> bool
     public static bool IsBVUGE(int x)
     {
@@ -456,28 +531,28 @@ public class Yices
     public static bool IsBVSLT(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_NOT_TERM;
+        return temp == (int) term_constructor_t.YICES_NOT_TERM; //x < y <=> ! y <= x
     }
 
     //abstract member IsBVULT: 'IExpr -> bool
     public static bool IsBVULT(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_NOT_TERM;
+        return temp == (int) term_constructor_t.YICES_NOT_TERM; //x < y <=> ! y <= x
     }
 
     //abstract member IsBVSLE: 'IExpr -> bool
     public static bool IsBVSLE(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_BV_SGE_ATOM;
+        return temp == (int) term_constructor_t.YICES_BV_SGE_ATOM; // x <= y <=> y >= x
     }
 
     //abstract member IsBVULE: 'IExpr -> bool
     public static bool IsBVULE(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_BV_GE_ATOM;
+        return temp == (int) term_constructor_t.YICES_BV_GE_ATOM; // x <= y <=> y >= x
     }
 
     /* TO DO implement FP Theory

@@ -79,8 +79,8 @@ module internal Z3Solver =
             member t.MkCheckEToBVE(x : Expr) = x :? BitVecExpr
             member t.MkCheckEToFPE(x : Expr) = x :? FPExpr
             member t.MkCheckEToAE(x : Expr) = x :? ArrayExpr
+
             //down casts to nums
-            member t.MkCheckBVEToBVNum(x : BitVecExpr) = x :? BitVecNum
             member t.MkCheckFPEToFPNum(x : FPExpr) = x :? FPNum
             member t.MkCheckEToBVNum(x : Expr) = x :? BitVecNum
             member t.MkCheckEToFPNum(x : Expr) = x :? FPNum
