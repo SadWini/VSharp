@@ -313,6 +313,7 @@ public class Yices
     abstract member MkCheckEToINum: 'IExpr -> bool
     abstract member MkCheckEToRNum: 'IExpr -> bool
 
+
     //Common logic
     [DllImport("libyices.dll")]
     public static extern int yices_not(int x);//Arg must be a Boolean term

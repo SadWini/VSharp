@@ -85,7 +85,7 @@ module internal Z3Solver =
             member t.MkCheckEToBVNum(x : Expr) = x :? BitVecNum
             member t.MkCheckEToFPNum(x : Expr) = x :? FPNum
             member T.MkCheckEToINum(x : Expr) = x :? IntNum
-            member T.MkCheckEToRNum(x : Expr) = x :? IntNum
+            member T.MkCheckEToRNum(x : Expr) = x :? RatNum
 
             //Common logic
             member t.MkNot (x : BoolExpr) = ctx.MkNot x
