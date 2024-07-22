@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using Math.Gmp.Native;
 
 public class Yices
 {
@@ -310,8 +311,20 @@ public class Yices
     //TO DO Implement FP Theory
     //abstract member MkCheckEToFPNum: 'IExpr -> bool
 
-    abstract member MkCheckEToINum: 'IExpr -> bool
-    abstract member MkCheckEToRNum: 'IExpr -> bool
+    //abstract member MkCheckEToINum: 'IExpr -> bool
+    [DllImport("libyices.dll")]
+    public static extern int yices_term_is_int(int x);
+    public static bool MkCheckEToINum(int x)
+    {
+        return yices_term_is_int(x) == 1;
+    }
+    //abstract member MkCheckEToRNum: 'IExpr -> bool
+    [DllImport("libyices.dll")]
+    public static extern int yices_term_is_arithmetic(int x);
+    public static bool MkCheckEToRNum(int x)
+    {
+        return yices_term_is_arithmetic(x) == 1 && yices_term_is_int(x) == 0;
+    }
 
 
     //Common logic
@@ -398,11 +411,149 @@ public class Yices
 
     //BitVec arithmetics without overflow/underflow
     //Yices doesn't support it by default. Is approach write custom checks in C good?
-    abstract member MkBVAddNoUnderflow: 'IExpr * 'IExpr -> 'IBoolExpr
-    abstract member MkBVAddNoOverflow: 'IExpr * 'IExpr * bool-> 'IBoolExpr
-    abstract member MkBVMulNoUnderflow: 'IExpr * 'IExpr -> 'IBoolExpr
-    abstract member MkBVMulNoOverflow: 'IExpr * 'IExpr * bool-> 'IBoolExpr
+    //abstract member MkBVAddNoUnderflow: 'IExpr * 'IExpr -> 'IBoolExpr
+    [DllImport("libyices.dll")]
+    public static extern int yices_bvconst_zero(uint x);
 
+    [DllImport("libyices.dll")]
+    public static extern int yices_implies(int x, int y);
+    public static int MkBVAddNoUnderflow(int l, int r)
+    {
+        /*
+         * (bvadd no udf a b) ==>
+         *    (=> (and (bvslt a 0) (bvslt b 0)) (bvslt (bvadd a b) 0))
+         * */
+        uint size = yices_term_bitsize(l);
+        int zero = yices_bvconst_zero(size);
+        int lSLTZero = yices_bvsle_atom(l, zero);
+        int rSLTZero = yices_bvsle_atom(r, zero);
+        int sum = yices_bvadd(l, r);
+        int sumLTZero = yices_bvsle_atom(sum, zero);
+
+        return yices_implies(yices_and2(lSLTZero, rSLTZero), sumLTZero);
+    }
+
+    //abstract member MkBVAddNoOverflow: 'IExpr * 'IExpr * bool-> 'IBoolExpr
+    public static int MkBVAddNoOverflow(int l, int r, bool isSigned)
+    {
+        if (isSigned)
+        {
+            /*
+             * (bvadd no ovf signed a b) ==>
+             *    (=> (and (bvslt 0 a) (bvslt 0 b)) (bvslt 0 (bvadd a b)))
+             * */
+            uint size = yices_term_bitsize(l);
+            int zero = yices_bvconst_zero(size);
+            int zeroSLTl = yices_bvsle_atom(zero, l);
+            int zeroSLTr = yices_bvsle_atom(zero, r);
+            int sum = yices_bvadd(l, r);
+            int zeroSLTsum = yices_bvsle_atom(zero, sum);
+
+            return yices_implies(yices_and2(zeroSLTl, zeroSLTr), zeroSLTsum);
+        }
+        /*
+         * (bvadd no ovf unsigned a b) ==>
+         *    (= 0 (extract [highestBit] (bvadd (concat 0 a) (concat 0 b))))
+         * */
+        int extL = yices_zero_extend(l, 1);
+        int extR = yices_zero_extend(r, 1);
+        int sumU = yices_bvadd(extL, extR);
+        uint highestBitIdx = yices_term_bitsize(sumU) - 1;
+        int sumFirstBit = yices_bvextract(sumU, highestBitIdx, highestBitIdx);
+
+        return yices_eq(sumFirstBit, yices_bvconst_zero(0));
+    }
+
+    //abstract member MkBVMulNoUnderflow: 'IExpr * 'IExpr -> 'IBoolExpr
+    public static int MkBVMulNoUnderflow(int l, int r)
+    {
+        return MkBVSignedMulNoOverflow(l, r, false);
+    }
+
+   //abstract member MkBVMulNoOverflow: 'IExpr * 'IExpr * bool-> 'IBoolExpr
+    [DllImport("libyices.dll")]
+    public static extern int yices_bveq_atom(int x, int y);
+    [DllImport("libyices.dll")]
+    public static extern int yices_bvconst_one(uint x);
+
+    public static int MkBVMulNoOverflow(int l, int r, bool isSigned)
+    {
+        if (isSigned) return MkBVSignedMulNoOverflow(l, r, true);
+        return MkBVUnsignedMulNoOverflow(l, r);
+    }
+
+    public static int MkBVSignedMulNoOverflow(int l, int r, bool isOverflow)
+    {
+        uint size = yices_term_bitsize(l);
+        uint signBitIdx = size - 1;
+        int lSign = yices_bvextract(l, signBitIdx, signBitIdx);
+        int rSign = yices_bvextract(r, signBitIdx, signBitIdx);
+        int comp = yices_bveq_atom(lSign, rSign);
+
+        int overflowSignCheck = (isOverflow) ? comp : yices_not(comp);
+
+        int extL = yices_bvconcat2(lSign, l);
+        int extR = yices_bvconcat2(rSign, r);
+        int mulResult = yices_bvmul(extL, extR);
+
+        int msb0 = yices_bvextract(mulResult, size, size);
+        int msb1 = yices_bvextract(mulResult, size - 1, size - 1);
+        int overflow1 = yices_bveq_atom(yices_bvconst_one(1), yices_bvxor2(msb0, msb1));
+
+        int lSignBitSet = yices_bveq_atom(yices_bvconst_one(1), lSign);
+
+        // Overflow is possible when sign bits are equal
+        // lhsSign = 1, rhsSign = 0 -> false
+        // lhsSign = 0, rhsSign = 1 -> false
+        int overflow2 = isOverflow
+            ? yices_ite(lSignBitSet,
+                MkBVUnsignedMulBitOverflowCheck(yices_bvnot(l), yices_bvnot(r), size - 1),
+                MkBVUnsignedMulBitOverflowCheck(l, r, size - 1))
+            : yices_ite(lSignBitSet,
+                MkBVUnsignedMulBitOverflowCheck(yices_bvnot(l), r, size - 1),
+                MkBVUnsignedMulBitOverflowCheck(l, yices_bvnot(r), size - 1));
+        int overflow = yices_or2(overflow1, overflow2);
+
+        return yices_not(yices_and2(overflowSignCheck, overflow));
+    }
+
+    public static int MkBVUnsignedMulNoOverflow(int l, int r)
+    {
+        uint size = yices_term_bitsize(l);
+
+        int extL = yices_zero_extend(l, 1);
+        int extR = yices_zero_extend(r, 1);
+
+        int mulResult = yices_bvmul(extL, extR);
+        int overflowBit = yices_bvextract(mulResult, size, size);
+        int overflow1 = yices_bveq_atom(yices_bvconst_one(1), overflowBit);
+
+        int overflow2 = MkBVUnsignedMulBitOverflowCheck(l, r, size);
+
+        return yices_not(yices_or2(overflow1, overflow2));
+    }
+
+    public static int MkBVUnsignedMulBitOverflowCheck(int l, int r, uint size)
+    {
+        int[] data = new int[size];
+        //Is it possible to just use int as type of ovf?
+        int ovf = yices_false();
+        for (uint i = 1; i < size; i++)
+        {
+            uint lBitIdx = size - i;
+            int lBit = yices_bvextract(l, lBitIdx, lBitIdx);
+
+            uint rBitIdx = i;
+            int rBit = yices_bvextract(r, rBitIdx, rBitIdx);
+
+            int lBitValue = yices_bveq_atom(yices_bvconst_one(1), lBit);
+            int rBitValue = yices_bveq_atom(yices_bvconst_one(1), rBit);
+
+            ovf = yices_or2(ovf, lBitValue);
+            data[i] = yices_and2(ovf, rBitValue);
+        }
+        return yices_or((uint) data.Length, data);
+    }
     //FP Logic
     //TO DO Implement FP Theory
     //abstract member MkFPEq: 'IFPExpr * 'IFPExpr -> 'IBoolExpr
@@ -431,6 +582,7 @@ public class Yices
 
     //Didn't find toString in API, exists pretty printing, is possible to use for our purposes?
     //4700+ in yices.h
+    //Can we rewrite Encoding.fs to don't use it?
     abstract member String: 'IExpr -> string
 
     //Need to research exact functionality of this function in Z3
@@ -439,7 +591,6 @@ public class Yices
     public static extern int yices_term_child(int t, int i);
     [DllImport("libyices.dll")]
     public static extern int yices_term_num_child(int t);
-
     public static int[] GetArgs(int t)
     {
         int n = yices_term_num_child(t);
@@ -565,6 +716,9 @@ public class Yices
 
     //BitVecNum properties
     abstract member Int64: 'IBitVecNum -> Int64
+    [DllImport("libyices.dll")]
+    public static extern uint yices_bv_const_value(int t);
+
     //Exists function that give value as array of int bits
     abstract member Int: 'IBitVecNum -> int
     abstract member BigInteger: 'IBitVecNum -> BigInteger
@@ -587,11 +741,22 @@ public class Yices
 
     //IntNum properties
     abstract member GetIntFromIntNum: 'IExpr -> int
+
     //RatNum properties
-    abstract member GetValueFromRatNum: 'IExpr -> double
+    //abstract member GetValueFromRatNum: 'IExpr -> double
+    [DllImport("libyices.dll")]
+    public static extern int yices_rational_const_value(int t, mpq_t v);
+    public static double GetValueFromRatNum(int t)
+    {
+        mpq_t temp = new mpq_t() ;
+        yices_rational_const_value(t, temp);
+        double num = Double.Parse(temp._mp_num.ToString());
+        double den = Double.Parse(temp._mp_den.ToString());
+        return num / den;
+    }
+
     //Quantifier properties
     abstract member GetQuantifierBody: 'IExpr -> 'IExpr
-
     //Solver methods
     abstract member MkSModel: 'ISolver -> 'IModel
     abstract member CheckSat: 'ISolver * 'IExpr array -> IStatus
