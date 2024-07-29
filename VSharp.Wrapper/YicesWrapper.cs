@@ -1,69 +1,74 @@
 ﻿using System;
+using System.Numerics;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.JavaScript;
 using Math.Gmp.Native;
 
+//using VSharp.ISolver;
 public class Yices
 {
     enum term_constructor_t
     {
-         YICES_CONSTRUCTOR_ERROR = -1, // to report an error
+        YICES_CONSTRUCTOR_ERROR = -1, // to report an error
 
         // atomic terms
-        YICES_BOOL_CONSTANT,       // boolean constant
-        YICES_ARITH_CONSTANT,      // rational constant
-        YICES_BV_CONSTANT,         // bitvector constant
-        YICES_SCALAR_CONSTANT,     // constant of uninterpreted/scalar
-        YICES_VARIABLE,            // variable in quantifiers
-        YICES_UNINTERPRETED_TERM,  // (i.e., global variables, can't be bound)
+        YICES_BOOL_CONSTANT, // boolean constant
+        YICES_ARITH_CONSTANT, // rational constant
+        YICES_BV_CONSTANT, // bitvector constant
+        YICES_SCALAR_CONSTANT, // constant of uninterpreted/scalar
+        YICES_VARIABLE, // variable in quantifiers
+        YICES_UNINTERPRETED_TERM, // (i.e., global variables, can't be bound)
 
         // composite terms
-        YICES_ITE_TERM,            // if-then-else
-        YICES_APP_TERM,            // application of an uninterpreted function
-        YICES_UPDATE_TERM,         // function update
-        YICES_TUPLE_TERM,          // tuple constructor
-        YICES_EQ_TERM,             // equality
-        YICES_DISTINCT_TERM,       // distinct t_1 ... t_n
-        YICES_FORALL_TERM,         // quantifier
-        YICES_LAMBDA_TERM,         // lambda
-        YICES_NOT_TERM,            // (not t)
-        YICES_OR_TERM,             // n-ary OR
-        YICES_XOR_TERM,            // n-ary XOR
+        YICES_ITE_TERM, // if-then-else
+        YICES_APP_TERM, // application of an uninterpreted function
+        YICES_UPDATE_TERM, // function update
+        YICES_TUPLE_TERM, // tuple constructor
+        YICES_EQ_TERM, // equality
+        YICES_DISTINCT_TERM, // distinct t_1 ... t_n
+        YICES_FORALL_TERM, // quantifier
+        YICES_LAMBDA_TERM, // lambda
+        YICES_NOT_TERM, // (not t)
+        YICES_OR_TERM, // n-ary OR
+        YICES_XOR_TERM, // n-ary XOR
 
-        YICES_BV_ARRAY,            // array of boolean terms
-        YICES_BV_DIV,              // unsigned division
-        YICES_BV_REM,              // unsigned remainder
-        YICES_BV_SDIV,             // signed division
-        YICES_BV_SREM,             // remainder in signed division (rounding to 0)
-        YICES_BV_SMOD,             // remainder in signed division (rounding to -infinity)
-        YICES_BV_SHL,              // shift left (padding with 0)
-        YICES_BV_LSHR,             // logical shift right (padding with 0)
-        YICES_BV_ASHR,             // arithmetic shift right (padding with sign bit)
-        YICES_BV_GE_ATOM,          // unsigned comparison: (t1 >= t2)
-        YICES_BV_SGE_ATOM,         // signed comparison (t1 >= t2)
-        YICES_ARITH_GE_ATOM,       // atom (t1 >= t2) for arithmetic terms: t2 is always 0
-        YICES_ARITH_ROOT_ATOM,     // atom (0 <= k <= root_count(p)) && (x r root(p, k)) for r in <, <=, ==, !=, >, >=
+        YICES_BV_ARRAY, // array of boolean terms
+        YICES_BV_DIV, // unsigned division
+        YICES_BV_REM, // unsigned remainder
+        YICES_BV_SDIV, // signed division
+        YICES_BV_SREM, // remainder in signed division (rounding to 0)
+        YICES_BV_SMOD, // remainder in signed division (rounding to -infinity)
+        YICES_BV_SHL, // shift left (padding with 0)
+        YICES_BV_LSHR, // logical shift right (padding with 0)
+        YICES_BV_ASHR, // arithmetic shift right (padding with sign bit)
+        YICES_BV_GE_ATOM, // unsigned comparison: (t1 >= t2)
+        YICES_BV_SGE_ATOM, // signed comparison (t1 >= t2)
+        YICES_ARITH_GE_ATOM, // atom (t1 >= t2) for arithmetic terms: t2 is always 0
+        YICES_ARITH_ROOT_ATOM, // atom (0 <= k <= root_count(p)) && (x r root(p, k)) for r in <, <=, ==, !=, >, >=
 
 
-        YICES_ABS,                 // absolute value
-        YICES_CEIL,                // ceil
-        YICES_FLOOR,               // floor
-        YICES_RDIV,                // real division (as in x/y)
-        YICES_IDIV,                // integer division
-        YICES_IMOD,                // modulo
-        YICES_IS_INT_ATOM,         // integrality test: (is-int t)
-        YICES_DIVIDES_ATOM,        // divisibility test: (divides t1 t2)
+        YICES_ABS, // absolute value
+        YICES_CEIL, // ceil
+        YICES_FLOOR, // floor
+        YICES_RDIV, // real division (as in x/y)
+        YICES_IDIV, // integer division
+        YICES_IMOD, // modulo
+        YICES_IS_INT_ATOM, // integrality test: (is-int t)
+        YICES_DIVIDES_ATOM, // divisibility test: (divides t1 t2)
 
         // projections
-        YICES_SELECT_TERM,         // tuple projection
-        YICES_BIT_TERM,            // bit-select: extract the i-th bit of a bitvector
+        YICES_SELECT_TERM, // tuple projection
+        YICES_BIT_TERM, // bit-select: extract the i-th bit of a bitvector
 
         // sums
-        YICES_BV_SUM,              // sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
-        YICES_ARITH_SUM,           // sum of pairs a * t where a is a rational (and t is an arithmetic term)
+        YICES_BV_SUM, // sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
+        YICES_ARITH_SUM, // sum of pairs a * t where a is a rational (and t is an arithmetic term)
 
         // products
-        YICES_POWER_PRODUCT        // power products: (t1^d1 * ... * t_n^d_n)
+        YICES_POWER_PRODUCT // power products: (t1^d1 * ... * t_n^d_n)
     }
+
+
     // Creation of constant expressions
     [DllImport("libyices.dll")]
     public static extern int yices_true();
@@ -80,6 +85,13 @@ public class Yices
     }
 
     //abstract member MkConst: string * 'ISort -> 'IExpr
+    //What is const of given sort?
+    public static int MkConst(string s, int typ)
+    {
+        int t = yices_new_uninterpreted_term(typ);
+        int flag = yices_set_type_name(t, s);
+        return t;
+    }
 
     //abstract member MkConstDecl: string * 'ISort -> 'IFuncDecl
     [DllImport("libyices.dll")]
@@ -142,15 +154,14 @@ public class Yices
     //abstract member MkBoolSort: unit -> 'ISort
     [DllImport("libyices.dll")]
     public static extern int yices_bool_type();
-
     public static int MkBoolSort()
     {
         return yices_bool_type();
     }
+
     //abstract member MkBitVecSort: uint -> 'ISort
     [DllImport("libyices.dll")]
     public static extern int yices_bv_type(uint size);
-
     public static int MkBitVecSort(uint size)
     {
         return yices_bv_type(size);
@@ -330,84 +341,298 @@ public class Yices
     //Common logic
     [DllImport("libyices.dll")]
     public static extern int yices_not(int x);//Arg must be a Boolean term
+
+    public static int MkNot(int x)
+    {
+        return yices_not(x);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_and2(int x, int y);// MkAnd Args must be a Boolean term
-    [DllImport("libyices.dll")]    // MkAndArray & MkAndSeq ??
+
+    public static int MkAnd(int x, int y)
+    {
+        return yices_and2(x, y);
+    }
+
+    [DllImport("libyices.dll")]
     public static extern int yices_and(uint n, int[] a); //n is the number of arguments
+
+    public static int MkAndArray(params int[] x)
+    {
+        return yices_and((uint)x.Length, x);
+    }
+
+    public static int MkAndSeq(IEnumerable<int> x)
+    {
+        return yices_and((uint)Enumerable.Count(x), Enumerable.ToArray(x));
+    }
+
     //arg must be an array of n Boolean terms
     [DllImport("libyices.dll")] // MkOr
     public static extern int yices_or2(int x, int y);// Args must be a Boolean term
+
+    public static int MkOr(int x, int y)
+    {
+        return yices_or2(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkXor
     public static extern int yices_xor(uint n, int[] a); //n is the number of arguments
+
+    public static int MkXor(IEnumerable<int> x)
+    {
+        return yices_xor((uint) Enumerable.Count(x), Enumerable.ToArray(x));
+    }
+
     [DllImport("libyices.dll")]    // MkOrArray & MkOrSeq ??
     public static extern int yices_or(uint n, int[] a); //n is the number of arguments
+    public static int MkOrArray(params int[] x)
+    {
+        return yices_or((uint)x.Length, x);
+    }
+
+    public static int MkOrSeq(IEnumerable<int> x)
+    {
+        return yices_or((uint)Enumerable.Count(x), Enumerable.ToArray(x));
+    }
+
     [DllImport("libyices.dll")] // MkEq
     public static extern int yices_eq(int x, int y);// Args must be a Boolean terms
+
+    public static int MkEq(int x, int y)
+    {
+        return yices_eq(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkITE
     public static extern int yices_ite(int c, int x, int y);// c must be a Boolean terms, x & y must be a compatible terms
+
+    public static int MkITE(int c, int x, int y)
+    {
+        return yices_ite(c, x, y);
+    }
 
     //BitVec logic
     [DllImport("libyices.dll")] // MkBVAnd
     public static extern int yices_bvand2(int x,int y);
+
+    public static int MkBVAnd(int x, int y)
+    {
+        return yices_bvand2(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkBVOr
     public static extern int yices_bvor2(int x, int y);
+
+    public static int MkBVOr(int x, int y)
+    {
+        return yices_bvor2(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkBVXor
     public static extern int yices_bvxor2(int x, int y);
+
+    public static int MkBVXor(int x, int y)
+    {
+        return yices_bvxor2(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkBVNot
     public static extern int yices_bvnot(int x);
+
+    public static int MkBVNot(int x)
+    {
+        return yices_bvnot(x);
+    }
+
     [DllImport("libyices.dll")] // MkBVULT
     public static extern int yices_bvlt_atom(int x, int y);
+
+    public static int MkBVULT(int x, int y)
+    {
+        return yices_bvlt_atom(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkBVULE
     public static extern int yices_bvle_atom(int x, int y);
+
+    public static int MkBVULE(int x, int y)
+    {
+        return yices_bvle_atom(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkBVUGT
     public static extern int yices_bvgt_atom(int x, int y);
+
+    public static int MkBVUGT(int x, int y)
+    {
+        return yices_bvgt_atom(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkBVUGE
     public static extern int yices_bvge_atom(int x, int y);
+
+    public static int MkBVUGE(int x, int y)
+    {
+        return yices_bvge_atom(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkBVSLT
     public static extern int yices_bvslt_atom(int x, int y);
+
+    public static int MkBVSLT(int x, int y)
+    {
+        return yices_bvslt_atom(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkBVSLE
     public static extern int yices_bvsle_atom(int x, int y);
+
+    public static int MkBVSLE(int x, int y)
+    {
+        return yices_bvsle_atom(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkBVSGT
     public static extern int yices_bvsgt_atom(int x, int y);
+
+    public static int MkBVSGT(int x, int y)
+    {
+        return yices_bvsgt_atom(x, y);
+    }
+
     [DllImport("libyices.dll")] // MkBVSGE
     public static extern int yices_bvsge_atom(int x, int y);
+
+    public static int MkBVSGE(int x, int y)
+    {
+        return yices_bvsge_atom(x, y);
+    }
 
     //BitVec shifts
     // Need to check equivalence of bvshl in Z3 and Yices
     [DllImport("libyices.dll")]
     public static extern int yices_bvshl(int x, int y);
+
+    public static int MkBVSHL(int x, int y)
+    {
+        return yices_bvshl(x, y);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_bvashr(int x, int y);
+
+    public static int MkBVASHR(int x, int y)
+    {
+        return yices_bvashr(x, y);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_bvlshr(int x, int y);
+
+    public static int MkBVLSHR(int x, int y)
+    {
+        return yices_bvlshr(x, y);
+    }
 
     //BitVec conversions
     [DllImport("libyices.dll")]
     public static extern int yices_bvneg(int x);
+
+    public static int MkBVNeg(int x)
+    {
+        return yices_bvneg(x);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_sign_extend(int x, uint y);
+
+    public static int MkSignExtend(uint y, int x)
+    {
+        return yices_sign_extend(x, y);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_zero_extend(int x, uint y);
+
+    public static int MkZeroExtend(uint y, int x)
+    {
+        return yices_zero_extend(x, y)
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_bvextract(int x, uint y, uint z);
+
+    public static int MkExtract(uint y, uint z, int x)
+    {
+        return yices_bvextract(x,  y, z);
+    }
+
     [DllImport("libyices.dll")]
-    public static extern int yices_bvconcat2(int x, int y); // const in yices function
+    public static extern int yices_bvconcat2(int x, int y);
+
+    public static int MkConcat(int x, int y)
+    {
+        return yices_bvconcat2(x, y);
+    }
 
     //BitVec arithmetics
     [DllImport("libyices.dll")]
     public static extern int yices_bvadd(int x, int y);
+
+    public static int MkBVAdd(int x, int y)
+    {
+        return yices_bvadd(x, y);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_bvsub(int x, int y);
+
+    public static int MkBVSub(int x, int y)
+    {
+        return yices_bvsub(x, y);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_bvmul(int x, int y);
+
+    public static int MkBVMul(int x, int y)
+    {
+        return yices_bvmul(x, y);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_bvdiv(int x, int y);
+
+    public static int MkBVUDiv(int x, int y)
+    {
+        return yices_bvdiv(x, y);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_bvsdiv(int x, int y);
+
+    public static int MkBVSDiv(int x, int y)
+    {
+        return yices_bvsdiv(x, y);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_bvrem(int x, int y);
+
+    public static int MkBVURem(int x, int y)
+    {
+        return yices_bvrem(x, y);
+    }
+
     [DllImport("libyices.dll")]
     public static extern int yices_bvsrem(int x, int y);
+
+    public static int MkBVSRem(int x, int y)
+    {
+        return yices_bvsrem(x, y);
+    }
 
     //BitVec arithmetics without overflow/underflow
     //Yices doesn't support it by default. Is approach write custom checks in C good?
@@ -715,11 +940,21 @@ public class Yices
     */
 
     //BitVecNum properties
-    abstract member Int64: 'IBitVecNum -> Int64
+    //abstract member Int64: 'IBitVecNum -> Int64
+    //gives value of n-bitvector as array of n int bits
     [DllImport("libyices.dll")]
-    public static extern uint yices_bv_const_value(int t);
+    public static extern uint yices_bv_const_value(int t, int[] val);
+    public static long Int64(int t)
+    {
+        long temp = 0;
+        uint n = yices_term_bitsize(t);
+        int[] val = new int[n];
 
-    //Exists function that give value as array of int bits
+        for (uint i = 0; i < n; i++)
+            temp += val[i] << (int) i;
+
+    }
+
     abstract member Int: 'IBitVecNum -> int
     abstract member BigInteger: 'IBitVecNum -> BigInteger
     //abstract member SortSize: 'IBitVecExpr -> uint
