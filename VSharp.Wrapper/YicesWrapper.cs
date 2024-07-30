@@ -826,13 +826,38 @@ public class Yices
         return comp;
     }
     //Check
-    abstract member IsConst: 'IExpr -> bool
+    //abstract member IsConst: 'IExpr -> bool
+    public static bool IsConst(int x)
+    {
+        if (yices_term_is_atomic(x) == 0)
+            return false;
+        int temp = yices_term_constructor(x);
+        if (temp == (int)term_constructor_t.YICES_VARIABLE || temp == (int)term_constructor_t.YICES_UNINTERPRETED_TERM)
+            return false;
+        return true;
+    }
+
     abstract member IsConstantArray: 'IExpr -> bool
     abstract member IsDefaultArray: 'IExpr -> bool
     abstract member IsStore: 'IExpr -> bool
 
-    //How did we realise it in Z3?
-    abstract member IsQuantifier: 'IExpr -> bool
+    //abstract member IsQuantifier: 'IExpr -> bool
+    public static bool IsQuantifier(int x)
+    {
+        int temp = yices_term_constructor(x);
+        if (temp == (int)term_constructor_t.YICES_FORALL_TERM)
+            return true;
+        if (temp == (int)term_constructor_t.YICES_NOT_TERM)
+        {
+            int n = yices_term_num_child(x);
+            if (n != 1) return false;
+            int comp = yices_term_child(x, 0);
+            if (yices_term_constructor(comp) == (int)term_constructor_t.YICES_FORALL_TERM)
+                return true;
+        }
+        return false;
+    }
+
     //abstract member IsApp: 'IExpr -> bool
     public static bool IsApp(int x)
     {
@@ -992,6 +1017,14 @@ public class Yices
 
     //Quantifier properties
     abstract member GetQuantifierBody: 'IExpr -> 'IExpr
+    public static int GetQuantifierBody(int x)
+    {
+        int temp = yices_term_constructor(x);
+        if (temp == (int) term_constructor_t.YICES_FORALL_TERM)
+            return yices_term_child(x, 0);
+
+    }
+
     //Solver methods
     abstract member MkSModel: 'ISolver -> 'IModel
     abstract member CheckSat: 'ISolver * 'IExpr array -> IStatus
