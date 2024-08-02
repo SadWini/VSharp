@@ -869,7 +869,7 @@ module internal Z3 =
                 (x.MkITE(guard :?> BoolExpr, value, prevIte), assumptions) |> k
             Cps.List.foldrk constructUnion (elseValue, []) iteType.branches (fun (ite, assumptions) ->
             {expr = ite; assumptions = assumptions})
-            
+
         member private x.EncodeExpression term op args typ =
             encodingCache.Get(term, fun () ->
                 match op with
@@ -1288,8 +1288,8 @@ module internal Z3 =
             | :? BitVecExpr as bv when bv.IsConst ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t[expr]
                 else x.GetTypeOfBV bv |> Concrete expr.String
-            | :? IntNum as i -> Concrete i.Int typeof<int>
-            | :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) typeof<int>
+            //| :? IntNum as i -> Concrete i.Int typeof<int>
+            //| :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) typeof<int>
             | _ ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t[expr]
                 elif expr.IsTrue then True()
