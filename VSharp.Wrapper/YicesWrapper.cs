@@ -1016,13 +1016,21 @@ public class Yices
     }
 
     //Quantifier properties
-    abstract member GetQuantifierBody: 'IExpr -> 'IExpr
+    //abstract member GetQuantifierBody: 'IExpr -> 'IExpr
     public static int GetQuantifierBody(int x)
     {
         int temp = yices_term_constructor(x);
         if (temp == (int) term_constructor_t.YICES_FORALL_TERM)
-            return yices_term_child(x, 0);
-
+            return yices_term_child(x, yices_term_num_child(x) - 1);
+        //exist x : P <=> !forall x : !P
+        if (temp == (int)term_constructor_t.YICES_NOT_TERM)
+        {
+            int inner_term = yices_term_child(x, 0);
+            temp = yices_term_constructor(inner_term);
+            if (temp == (int)term_constructor_t.YICES_FORALL_TERM)
+                return yices_term_child(yices_term_child(inner_term, yices_term_num_child(inner_term) - 1), 0);
+        }
+        throw new ArgumentException("The term is not quantifier, cannot get body");
     }
 
     //Solver methods
