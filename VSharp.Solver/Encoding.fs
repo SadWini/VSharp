@@ -1301,8 +1301,6 @@ module internal Encoding =
                 let exists, result = e2t.TryGetValue expr
                 if exists then result
                 else x.GetTypeOfBV bv |> Concrete (ctx.String expr)
-            | _ when ctx.MkCheckEToINum expr -> Concrete (ctx.GetIntFromIntNum expr) typeof<int>
-            | _ when ctx.MkCheckEToRNum expr -> Concrete (ctx.GetValueFromRatNum expr) typeof<int>
             | _ ->
                 let exists, result = e2t.TryGetValue expr
                 if exists then result

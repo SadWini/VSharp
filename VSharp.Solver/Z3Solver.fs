@@ -84,8 +84,6 @@ module internal Z3Solver =
             member t.MkCheckFPEToFPNum(x : FPExpr) = x :? FPNum
             member t.MkCheckEToBVNum(x : Expr) = x :? BitVecNum
             member t.MkCheckEToFPNum(x : Expr) = x :? FPNum
-            member T.MkCheckEToINum(x : Expr) = x :? IntNum
-            member T.MkCheckEToRNum(x : Expr) = x :? RatNum
 
             //Common logic
             member t.MkNot (x : BoolExpr) = ctx.MkNot x
@@ -208,13 +206,6 @@ module internal Z3Solver =
             member t.ExponentInt64(x : FPNum) = x.ExponentInt64()
             member t.SignificandUInt64(x : FPNum) = x.SignificandUInt64
             member t.Sign(x : FPNum) = x.Sign
-            //IntNum properties
-            member t.GetIntFromIntNum(x : Expr) = (x :?> IntNum).Int
-            //RatNum properties
-            member t.GetValueFromRatNum(x: Expr) =
-                let r = x :?> RatNum
-                double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)
-
             member t.GetQuantifierBody(x : Expr) = (x :?> Quantifier).Body
 
             member t.MkSModel (x : Solver) = x.Model

@@ -322,22 +322,6 @@ public class Yices
     //TO DO Implement FP Theory
     //abstract member MkCheckEToFPNum: 'IExpr -> bool
 
-    //abstract member MkCheckEToINum: 'IExpr -> bool
-    [DllImport("libyices.dll")]
-    public static extern int yices_term_is_int(int x);
-    public static bool MkCheckEToINum(int x)
-    {
-        return yices_term_is_int(x) == 1;
-    }
-    //abstract member MkCheckEToRNum: 'IExpr -> bool
-    [DllImport("libyices.dll")]
-    public static extern int yices_term_is_arithmetic(int x);
-    public static bool MkCheckEToRNum(int x)
-    {
-        return yices_term_is_arithmetic(x) == 1 && yices_term_is_int(x) == 0;
-    }
-
-
     //Common logic
     [DllImport("libyices.dll")]
     public static extern int yices_not(int x);//Arg must be a Boolean term
@@ -999,21 +983,7 @@ public class Yices
     //abstract member SignificandUInt64: 'IFPNum -> uint64
     //abstract member Sign: 'IFPNum -> bool
 
-    //IntNum properties
-    abstract member GetIntFromIntNum: 'IExpr -> int
 
-    //RatNum properties
-    //abstract member GetValueFromRatNum: 'IExpr -> double
-    [DllImport("libyices.dll")]
-    public static extern int yices_rational_const_value(int t, mpq_t v);
-    public static double GetValueFromRatNum(int t)
-    {
-        mpq_t temp = new mpq_t() ;
-        yices_rational_const_value(t, temp);
-        double num = Double.Parse(temp._mp_num.ToString());
-        double den = Double.Parse(temp._mp_den.ToString());
-        return num / den;
-    }
 
     //Quantifier properties
     //abstract member GetQuantifierBody: 'IExpr -> 'IExpr
