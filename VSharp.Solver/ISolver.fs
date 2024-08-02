@@ -76,8 +76,6 @@ type ISolverCommon<'IExpr, 'IBoolExpr, 'IBitVecExpr, 'IFPExpr, 'IArrayExpr, 'IBi
     abstract member MkCheckFPEToFPNum: 'IFPExpr -> bool
     abstract member MkCheckEToBVNum: 'IExpr -> bool
     abstract member MkCheckEToFPNum: 'IExpr -> bool
-    abstract member MkCheckEToINum: 'IExpr -> bool
-    abstract member MkCheckEToRNum: 'IExpr -> bool
 
     //Common logic
     abstract member MkNot: 'IBoolExpr -> 'IBoolExpr
@@ -195,10 +193,7 @@ type ISolverCommon<'IExpr, 'IBoolExpr, 'IBitVecExpr, 'IFPExpr, 'IArrayExpr, 'IBi
     abstract member ExponentInt64: 'IFPNum -> int64
     abstract member SignificandUInt64: 'IFPNum -> uint64
     abstract member Sign: 'IFPNum -> bool
-    //IntNum properties
-    abstract member GetIntFromIntNum: 'IExpr -> int
-    //RatNum properties
-    abstract member GetValueFromRatNum: 'IExpr -> double
+
     //Quantifier properties
     abstract member GetQuantifierBody: 'IExpr -> 'IExpr
 
