@@ -833,8 +833,6 @@ public class Yices
             return true;
         if (temp == (int)term_constructor_t.YICES_NOT_TERM)
         {
-            int n = yices_term_num_child(x);
-            if (n != 1) return false;
             int comp = yices_term_child(x, 0);
             if (yices_term_constructor(comp) == (int)term_constructor_t.YICES_FORALL_TERM)
                 return true;
@@ -868,7 +866,13 @@ public class Yices
         return temp == (int) term_constructor_t.YICES_NOT_TERM;
     }
 
-    abstract member IsAnd: 'IExpr -> bool
+    //abstract member IsAnd: 'IExpr -> bool
+    public static bool IsAnd(int t)
+    {
+        //and x y <=> !or !x !y
+        //should parse as Not -> Or
+        return false;
+    }
 
     //abstract member IsOr: 'IExpr -> bool
     [DllImport("libyices.dll")]
@@ -889,14 +893,15 @@ public class Yices
     //abstract member IsBVSGT: 'IExpr -> bool
     public static bool IsBVSGT(int x)
     {
-        int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_NOT_TERM; //x > y <=> ! y >= x
+        //x > y <=> ! y >= x
+        return false;
     }
+
     //abstract member IsBVUGT: 'IExpr -> bool
     public static bool IsBVUGT(int x)
     {
-        int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_NOT_TERM; //x > y <=> ! y >= x
+        //x > y <=> ! y >= x
+        return false;
     }
 
     //abstract member IsBVSGE: 'IExpr -> bool
@@ -916,29 +921,29 @@ public class Yices
     //abstract member IsBVSLT: 'IExpr -> bool
     public static bool IsBVSLT(int x)
     {
-        int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_NOT_TERM; //x < y <=> ! y <= x
+        //x < y <=> ! y <= x
+        return false;
     }
 
     //abstract member IsBVULT: 'IExpr -> bool
     public static bool IsBVULT(int x)
     {
-        int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_NOT_TERM; //x < y <=> ! y <= x
+        //x < y <=> ! y <= x
+        return false;
     }
 
     //abstract member IsBVSLE: 'IExpr -> bool
     public static bool IsBVSLE(int x)
     {
-        int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_BV_SGE_ATOM; // x <= y <=> y >= x
+        // x <= y <=> y >= x
+        return false;
     }
 
     //abstract member IsBVULE: 'IExpr -> bool
     public static bool IsBVULE(int x)
     {
-        int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_BV_GE_ATOM; // x <= y <=> y >= x
+        // x <= y <=> y >= x
+        return false;
     }
 
     /* TO DO implement FP Theory
