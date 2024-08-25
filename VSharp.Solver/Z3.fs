@@ -1287,7 +1287,8 @@ module internal Z3 =
             | :? FPNum as fp when Types.IsNumeric t -> x.DecodeFPNum t fp
             | :? BitVecExpr as bv when bv.IsConst ->
                 if encodingCache.e2t.ContainsKey(expr) then encodingCache.e2t[expr]
-                else x.GetTypeOfBV bv |> Concrete expr.String
+                else failwith("Error with bv decode")
+                    //x.GetTypeOfBV bv |> Concrete expr.String
             //| :? IntNum as i -> Concrete i.Int typeof<int>
             //| :? RatNum as r -> Concrete (double(r.Numerator.Int) * 1.0 / double(r.Denominator.Int)) typeof<int>
             | _ ->
@@ -1444,7 +1445,7 @@ module internal Z3 =
                             let quantifier = arr :?> Quantifier
                             let body = quantifier.Body
                             // This case decodes predicates, for example: \x -> x = 100, where 'x' is address
-                            if body.IsApp && body.IsEq && body.Args.Length = 2 then
+                            if body.IsEq && body.Args.Length = 2 then
                                 // Firstly, setting all values to 'false'
                                 x.WriteDictOfValueTypes defaultValues region path typeOfRegion (MakeBool false)
                                 let address = x.DecodeMemoryKey region (Array.singleton body.Args[1])
