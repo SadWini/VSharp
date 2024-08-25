@@ -1,74 +1,13 @@
-﻿using System;
+﻿using VSharp.Solver;
+
+namespace VSharp.Wrapper;
+
 using System.Numerics;
 using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.JavaScript;
-using Math.Gmp.Native;
 
 //using VSharp.ISolver;
-public class Yices
+unsafe public class Yices
 {
-    enum term_constructor_t
-    {
-        YICES_CONSTRUCTOR_ERROR = -1, // to report an error
-
-        // atomic terms
-        YICES_BOOL_CONSTANT, // boolean constant
-        YICES_ARITH_CONSTANT, // rational constant
-        YICES_BV_CONSTANT, // bitvector constant
-        YICES_SCALAR_CONSTANT, // constant of uninterpreted/scalar
-        YICES_VARIABLE, // variable in quantifiers
-        YICES_UNINTERPRETED_TERM, // (i.e., global variables, can't be bound)
-
-        // composite terms
-        YICES_ITE_TERM, // if-then-else
-        YICES_APP_TERM, // application of an uninterpreted function
-        YICES_UPDATE_TERM, // function update
-        YICES_TUPLE_TERM, // tuple constructor
-        YICES_EQ_TERM, // equality
-        YICES_DISTINCT_TERM, // distinct t_1 ... t_n
-        YICES_FORALL_TERM, // quantifier
-        YICES_LAMBDA_TERM, // lambda
-        YICES_NOT_TERM, // (not t)
-        YICES_OR_TERM, // n-ary OR
-        YICES_XOR_TERM, // n-ary XOR
-
-        YICES_BV_ARRAY, // array of boolean terms
-        YICES_BV_DIV, // unsigned division
-        YICES_BV_REM, // unsigned remainder
-        YICES_BV_SDIV, // signed division
-        YICES_BV_SREM, // remainder in signed division (rounding to 0)
-        YICES_BV_SMOD, // remainder in signed division (rounding to -infinity)
-        YICES_BV_SHL, // shift left (padding with 0)
-        YICES_BV_LSHR, // logical shift right (padding with 0)
-        YICES_BV_ASHR, // arithmetic shift right (padding with sign bit)
-        YICES_BV_GE_ATOM, // unsigned comparison: (t1 >= t2)
-        YICES_BV_SGE_ATOM, // signed comparison (t1 >= t2)
-        YICES_ARITH_GE_ATOM, // atom (t1 >= t2) for arithmetic terms: t2 is always 0
-        YICES_ARITH_ROOT_ATOM, // atom (0 <= k <= root_count(p)) && (x r root(p, k)) for r in <, <=, ==, !=, >, >=
-
-
-        YICES_ABS, // absolute value
-        YICES_CEIL, // ceil
-        YICES_FLOOR, // floor
-        YICES_RDIV, // real division (as in x/y)
-        YICES_IDIV, // integer division
-        YICES_IMOD, // modulo
-        YICES_IS_INT_ATOM, // integrality test: (is-int t)
-        YICES_DIVIDES_ATOM, // divisibility test: (divides t1 t2)
-
-        // projections
-        YICES_SELECT_TERM, // tuple projection
-        YICES_BIT_TERM, // bit-select: extract the i-th bit of a bitvector
-
-        // sums
-        YICES_BV_SUM, // sum of pairs a * t where a is a bitvector constant (and t is a bitvector term)
-        YICES_ARITH_SUM, // sum of pairs a * t where a is a rational (and t is an arithmetic term)
-
-        // products
-        YICES_POWER_PRODUCT // power products: (t1^d1 * ... * t_n^d_n)
-    }
-
-
     // Creation of constant expressions
     [DllImport("libyices.dll")]
     public static extern int yices_true();
@@ -243,8 +182,16 @@ public class Yices
 
     //down casts from expr
     //Just return variable because all types are int
-    abstract member MkEToBE: 'IExpr -> 'IBoolExpr
-    abstract member MkEToBVE: 'IExpr -> 'IBitVecExpr
+    //abstract member MkEToBE: 'IExpr -> 'IBoolExpr
+    public static int MkEToBE(int x)
+    {
+        return x;
+    }
+    //abstract member MkEToBVE: 'IExpr -> 'IBitVecExpr
+    public static int MkEToBVE(int x)
+    {
+        return x;
+    }
     abstract member MkEToFPE: 'IExpr -> 'IFPExpr
     abstract member MkEToAE: 'IExpr -> 'IArrayExpr
 
@@ -763,6 +710,7 @@ public class Yices
         }
         return yices_or((uint) data.Length, data);
     }
+
     //FP Logic
     //TO DO Implement FP Theory
     //abstract member MkFPEq: 'IFPExpr * 'IFPExpr -> 'IBoolExpr
@@ -816,7 +764,7 @@ public class Yices
         if (yices_term_is_atomic(x) == 0)
             return false;
         int temp = yices_term_constructor(x);
-        if (temp == (int)term_constructor_t.YICES_VARIABLE || temp == (int)term_constructor_t.YICES_UNINTERPRETED_TERM)
+        if (temp == (int)YicesTypes.term_constructor_t.YICES_VARIABLE || temp == (int)YicesTypes.term_constructor_t.YICES_UNINTERPRETED_TERM)
             return false;
         return true;
     }
@@ -829,12 +777,12 @@ public class Yices
     public static bool IsQuantifier(int x)
     {
         int temp = yices_term_constructor(x);
-        if (temp == (int)term_constructor_t.YICES_FORALL_TERM)
+        if (temp == (int)YicesTypes.term_constructor_t.YICES_FORALL_TERM)
             return true;
-        if (temp == (int)term_constructor_t.YICES_NOT_TERM)
+        if (temp == (int)YicesTypes.term_constructor_t.YICES_NOT_TERM)
         {
             int comp = yices_term_child(x, 0);
-            if (yices_term_constructor(comp) == (int)term_constructor_t.YICES_FORALL_TERM)
+            if (yices_term_constructor(comp) == (int)YicesTypes.term_constructor_t.YICES_FORALL_TERM)
                 return true;
         }
         return false;
@@ -844,7 +792,7 @@ public class Yices
     public static bool IsApp(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_APP_TERM;
+        return temp == (int) YicesTypes.term_constructor_t.YICES_APP_TERM;
     }
 
     //abstract member IsTrue: 'IExpr -> bool
@@ -863,14 +811,14 @@ public class Yices
     public static bool IsNot(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_NOT_TERM;
+        return temp == (int) YicesTypes.term_constructor_t.YICES_NOT_TERM;
     }
 
     //abstract member IsAnd: 'IExpr -> bool
     public static bool IsAnd(int t)
     {
         //and x y <=> !or !x !y
-        //should parse as Not -> Or
+        //should be parsed as Not -> Or
         return false;
     }
 
@@ -880,14 +828,14 @@ public class Yices
     public static bool IsOr(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_OR_TERM;
+        return temp == (int) YicesTypes.term_constructor_t.YICES_OR_TERM;
     }
 
     //abstract member IsEq: 'IExpr -> bool
     public static bool IsEq(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_EQ_TERM;
+        return temp == (int) YicesTypes.term_constructor_t.YICES_EQ_TERM;
     }
 
     //abstract member IsBVSGT: 'IExpr -> bool
@@ -908,14 +856,14 @@ public class Yices
     public static bool IsBVSGE(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_BV_SGE_ATOM;
+        return temp == (int) YicesTypes.term_constructor_t.YICES_BV_SGE_ATOM;
     }
 
     //abstract member IsBVUGE: 'IExpr -> bool
     public static bool IsBVUGE(int x)
     {
         int temp = yices_term_constructor(x);
-        return temp == (int) term_constructor_t.YICES_BV_GE_ATOM;
+        return temp == (int) YicesTypes.term_constructor_t.YICES_BV_GE_ATOM;
     }
 
     //abstract member IsBVSLT: 'IExpr -> bool
@@ -995,30 +943,80 @@ public class Yices
     public static int GetQuantifierBody(int x)
     {
         int temp = yices_term_constructor(x);
-        if (temp == (int) term_constructor_t.YICES_FORALL_TERM)
+        if (temp == (int) YicesTypes.term_constructor_t.YICES_FORALL_TERM)
             return yices_term_child(x, yices_term_num_child(x) - 1);
         //exist x : P <=> !forall x : !P
-        if (temp == (int)term_constructor_t.YICES_NOT_TERM)
+        if (temp == (int)YicesTypes.term_constructor_t.YICES_NOT_TERM)
         {
             int inner_term = yices_term_child(x, 0);
             temp = yices_term_constructor(inner_term);
-            if (temp == (int)term_constructor_t.YICES_FORALL_TERM)
+            if (temp == (int)YicesTypes.term_constructor_t.YICES_FORALL_TERM)
                 return yices_term_child(yices_term_child(inner_term, yices_term_num_child(inner_term) - 1), 0);
         }
         throw new ArgumentException("The term is not quantifier, cannot get body");
     }
 
     //Solver methods
-    abstract member MkSModel: 'ISolver -> 'IModel
-    abstract member CheckSat: 'ISolver * 'IExpr array -> IStatus
-    abstract member Assert: 'ISolver * [<ParamArray>] x : 'IBoolExpr array  -> unit
-    abstract member GetReasonUnknown: 'ISolver -> string
-
-    //Model methods
-    abstract member Eval: 'IModel * 'IExpr * bool -> 'IExpr
+    //abstract member MkSModel: 'ISolver -> 'IModel
     [DllImport("libyices.dll")]
     //https://github.com/SRI-CSL/yices2/blob/master/src/context/context_types.h#L726
-    public static extern void yices_get_model(context_t ctx, int keep_subst);
+    public static extern IntPtr yices_get_model(IntPtr ctx, int keep_subst);
+    public static IntPtr MkSModel(IntPtr ctx, int keep_subst)
+    {
+        return yices_get_model(ctx, keep_subst);
+    }
+
+    //abstract member CheckSat: 'ISolver * 'IExpr array -> IStatus
+    [DllImport("libyices.dll")]
+    public static extern YicesTypes.smt_status yices_check_context_with_assumptions(
+        IntPtr ctx, IntPtr param, uint n, int[] terms);
+    public static ISolver.IStatus CheckSat(IntPtr solver, int[] expr)
+    {
+        YicesTypes.smt_status ans = yices_check_context_with_assumptions(solver, IntPtr.Zero, (uint)expr.Length, expr);
+        return ans switch
+        {
+            YicesTypes.smt_status.STATUS_SAT => ISolver.IStatus.SATISFIABLE,
+            YicesTypes.smt_status.STATUS_UNSAT => ISolver.IStatus.UNSATISFIABLE,
+            _ => ISolver.IStatus.UNKNOWN
+        };
+    }
+
+    //abstract member Assert: 'ISolver * [<ParamArray>] x : 'IBoolExpr array  -> unit
+    [DllImport("libyices.dll")]
+    public static extern int yices_assert_formulas(IntPtr ctx, uint n, int[] t);
+
+    public static void Assert(IntPtr ctx, params int[] term)
+    {
+        if (term != null) yices_assert_formulas(ctx, (uint)term.Length, term);
+    }
+
+    abstract member GetReasonUnknown: 'ISolver -> string
+
+    [DllImport("libyices.dll")]
+    public static extern int yices_get_unsat_core(IntPtr ctx, IntPtr term_vector);
+
+    [DllImport("libyices.dll")]
+    public static extern void yices_init_term_vector(IntPtr term_vector);
+
+    public static string GetReasonUnknown(IntPtr ctx)
+    {
+        YicesTypes.term_vector res = new YicesTypes.term_vector();
+        IntPtr resPtr = new IntPtr(&res);
+        yices_init_term_vector(resPtr);
+        yices_get_unsat_core(ctx, resPtr);
+
+    }
+
+    //Model methods
+    //abstract member Eval: 'IModel * 'IExpr * bool -> 'IExpr
+    //What does function Eval in Z3? Why is it's return signature is Expr?
+    [DllImport("libyices.dll")]
+    public static extern int yices_formula_true_in_model(IntPtr mdl, int x);
+    public static int Eval(IntPtr mdl, int x)
+    {
+        return yices_formula_true_in_model(mdl, x);
+    }
+
     [DllImport("libyices.dll")]
     public static extern void yices_init();
     [DllImport("libyices.dll")]

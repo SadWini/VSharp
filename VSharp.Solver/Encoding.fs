@@ -1252,6 +1252,7 @@ module internal Encoding =
                 let address = x.DecodeConcreteHeapAddress exprs[0] |> ConcreteHeapAddress
                 BoxedLocation(address, typ)
 
+        //change int64 and biginteger
         member private x.DecodeBv t (bv : 'IBitVecNum) =
             match ctx.SortSize (ctx.MkBVNumToBVE bv) with
             | 32u -> Concrete (convert (ctx.Int64 bv) t) t
@@ -1300,6 +1301,7 @@ module internal Encoding =
                 let bv = ctx.MkEToBVE expr
                 let exists, result = e2t.TryGetValue expr
                 if exists then result
+                //to do fail
                 else x.GetTypeOfBV bv |> Concrete (ctx.String expr)
             | _ ->
                 let exists, result = e2t.TryGetValue expr
@@ -1455,7 +1457,8 @@ module internal Encoding =
                         elif ctx.IsQuantifier arr then
                             let body = ctx.GetQuantifierBody arr
                             // This case decodes predicates, for example: \x -> x = 100, where 'x' is address
-                            if ctx.IsApp body && ctx.IsEq body && ctx.GetArgs(arr).Length = 2 then
+                            // Check that it works
+                            if ctx.IsEq body && ctx.GetArgs(arr).Length = 2 then
                                 // Firstly, setting all values to 'false'
                                 x.WriteDictOfValueTypes defaultValues region path typeOfRegion (MakeBool false)
                                 let address = x.DecodeMemoryKey region (Array.singleton (ctx.GetArgs(body)[1]))
