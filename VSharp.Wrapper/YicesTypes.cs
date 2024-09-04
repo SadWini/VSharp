@@ -74,14 +74,11 @@ unsafe public class YicesTypes
         YICES_POWER_PRODUCT // power products: (t1^d1 * ... * t_n^d_n)
     }
 
-    [StructLayout(LayoutKind.Explicit, Size = 12, Pack = 4)]
+    [StructLayout(LayoutKind.Sequential)]
     public struct term_vector
     {
-        [FieldOffset(0)]
-        private uint capacity;
-        [FieldOffset(4)]
-        private uint size;
-        [FieldOffset(8)]
-        private IntPtr data;
+        public uint capacity;
+        public uint size;
+        public int* data;
     }
 }

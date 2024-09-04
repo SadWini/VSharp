@@ -1301,8 +1301,8 @@ module internal Encoding =
                 let bv = ctx.MkEToBVE expr
                 let exists, result = e2t.TryGetValue expr
                 if exists then result
-                //to do fail
-                else x.GetTypeOfBV bv |> Concrete (ctx.String expr)
+                else failwith("Error with bv decode")
+                    //x.GetTypeOfBV bv |> Concrete (ctx.String expr)
             | _ ->
                 let exists, result = e2t.TryGetValue expr
                 if exists then result

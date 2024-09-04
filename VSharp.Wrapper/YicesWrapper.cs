@@ -1,4 +1,7 @@
-﻿using VSharp.Solver;
+﻿using System.Runtime.InteropServices.JavaScript;
+using System.Text;
+using Microsoft.Z3;
+using VSharp.Solver;
 
 namespace VSharp.Wrapper;
 
@@ -912,9 +915,10 @@ unsafe public class Yices
         uint n = yices_term_bitsize(t);
         int[] val = new int[n];
 
-        for (uint i = 0; i < n; i++)
+        for (uint i = 0; i < n - 1; i++)
             temp += val[i] << (int) i;
-
+        temp -= val[n - 1] << (int)(n - 1);
+        return temp;
     }
 
     abstract member Int: 'IBitVecNum -> int
@@ -990,21 +994,25 @@ unsafe public class Yices
         if (term != null) yices_assert_formulas(ctx, (uint)term.Length, term);
     }
 
-    abstract member GetReasonUnknown: 'ISolver -> string
-
+    //abstract member GetReasonUnknown: 'ISolver -> string
     [DllImport("libyices.dll")]
-    public static extern int yices_get_unsat_core(IntPtr ctx, IntPtr term_vector);
-
+    public static extern void yices_init_term_vector(out YicesTypes.term_vector v);
     [DllImport("libyices.dll")]
-    public static extern void yices_init_term_vector(IntPtr term_vector);
+    public static extern int yices_get_unsat_core(IntPtr ctx, ref YicesTypes.term_vector v);
 
     public static string GetReasonUnknown(IntPtr ctx)
     {
         YicesTypes.term_vector res = new YicesTypes.term_vector();
-        IntPtr resPtr = new IntPtr(&res);
-        yices_init_term_vector(resPtr);
-        yices_get_unsat_core(ctx, resPtr);
-
+        yices_init_term_vector(out res);
+        yices_get_unsat_core(ctx, ref res);
+        var data = new Span<int>(res.data, checked((int)res.size));
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < data.Length; i++)
+        {
+            result.Append(data[i].ToString());
+            result.Append(" ");
+        }
+        return result.ToString();
     }
 
     //Model methods
