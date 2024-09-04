@@ -1243,8 +1243,8 @@ module internal Z3 =
 
         member private x.DecodeBv t (bv : BitVecNum) =
             match bv.SortSize with
-            | 32u -> Concrete (convert bv.Int64 t) t
-            | 64u -> Concrete (convert (uint64 bv.BigInteger) t) t
+            | 32u -> Concrete (convert bv.UInt t) t
+            | 64u -> Concrete (convert (uint64 bv.UInt64) t) t
             | 16u -> Concrete (convert bv.Int t) t
             | 8u  -> Concrete (convert bv.Int t) t
             | _ -> __notImplemented__()
